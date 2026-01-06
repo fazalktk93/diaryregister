@@ -5,6 +5,19 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Max
 from django.utils import timezone
+# Removed erroneous self-import that caused a circular import
+
+class Office(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+        indexes = [
+            models.Index(fields=["name"]),
+        ]
+
+    def __str__(self):
+        return self.name
 
 
 class Diary(models.Model):
@@ -93,7 +106,6 @@ class Diary(models.Model):
             )
 
         return diary
-
 
 class DiaryMovement(models.Model):
     class ActionType(models.TextChoices):

@@ -25,7 +25,10 @@ class DiaryCreateForm(forms.ModelForm):
         ]
         widgets = {
             "diary_date": forms.DateInput(attrs={"type": "date", "class": BOOTSTRAP_INPUT_CLASS}),
-            "received_from": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS}),
+            "received_from": forms.TextInput(attrs={
+                "class": BOOTSTRAP_INPUT_CLASS,
+                "list": "office-list"
+            }),
             "received_diary_no": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS}),
             "file_letter": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS}),
             "no_of_folders": forms.NumberInput(attrs={"class": BOOTSTRAP_INPUT_CLASS, "min": 0}),
@@ -34,6 +37,41 @@ class DiaryCreateForm(forms.ModelForm):
         }
 
     diary_date = forms.DateField(initial=timezone.localdate, required=True)
+
+class DiaryCreateForm(forms.ModelForm):
+    marked_to = forms.CharField(
+        label="Marked To (Office)",
+        required=True,
+        widget=forms.TextInput(attrs={
+            "class": BOOTSTRAP_INPUT_CLASS,
+            "list": "office-list",
+            "placeholder": "Start typing office name..."
+        })
+    )
+
+    class Meta:
+        model = Diary
+        fields = [
+            "diary_date",
+            "received_from",
+            "received_diary_no",
+            "file_letter",
+            "no_of_folders",
+            "subject",
+            "remarks",
+        ]
+        widgets = {
+            "diary_date": forms.DateInput(attrs={"type": "date", "class": BOOTSTRAP_INPUT_CLASS}),
+            "received_from": forms.TextInput(attrs={
+                "class": BOOTSTRAP_INPUT_CLASS,
+                "list": "office-list"
+            }),
+            "received_diary_no": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS}),
+            "file_letter": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS}),
+            "no_of_folders": forms.NumberInput(attrs={"class": BOOTSTRAP_INPUT_CLASS, "min": 0}),
+            "subject": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 3}),
+            "remarks": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 3}),
+        }
 
 
 class MovementCreateForm(forms.ModelForm):

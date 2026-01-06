@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from .forms import DiaryCreateForm, MovementCreateForm
 from .models import Diary, DiaryMovement
+from .models import Office
 
 
 DIARYNO_RE = re.compile(r"^\s*(\d{4})\s*-\s*(\d+)\s*$")  # 2026-12
@@ -71,22 +72,25 @@ def diary_create(request):
     if request.method == "POST":
         form = DiaryCreateForm(request.POST)
         if form.is_valid():
-            diary = Diary.create_with_next_number(created_by=request.user, **form.cleaned_data)
+            marked_to = form.cleaned_data.pop("marked_to")
+
+            diary = Diary.create_with_next_number(
+                created_by=request.user,
+                marked_to=marked_to,
+                marked_date=timezone.localdate(),
+                status=Diary.Status.CREATED,
+                **form.cleaned_data,
+            )
 
             DiaryMovement.objects.create(
                 diary=diary,
                 from_office=diary.received_from or "Registry",
-                to_office=diary.received_from or "Registry",
+                to_office=marked_to,
                 action_type=DiaryMovement.ActionType.CREATED,
                 action_datetime=timezone.now(),
-                remarks="Initial diary created",
+                remarks="Initial diary entry",
                 created_by=request.user,
             )
-
-            diary.status = Diary.Status.CREATED
-            diary.marked_to = diary.received_from or "Registry"
-            diary.marked_date = timezone.localdate()
-            diary.save(update_fields=["status", "marked_to", "marked_date"])
 
             messages.success(request, f"Diary created: {diary.diary_no}")
             return redirect("diary_detail", pk=diary.pk)
@@ -94,7 +98,15 @@ def diary_create(request):
     else:
         form = DiaryCreateForm()
 
-    return render(request, "diary/diary_create.html", {"form": form})
+    return render(
+        request,
+        "diary/diary_create.html",
+        {
+            "form": form,
+            "offices": Office.objects.values_list("name", flat=True),
+        },
+    )
+
 
 
 @login_required
@@ -137,4 +149,12 @@ def movement_add(request, pk: int):
             }
         )
 
-    return render(request, "diary/movement_add.html", {"form": form, "diary": diary})
+    return render(
+        request,
+        "diary/movement_add.html",
+        {
+            "form": form,
+            "diary": diary,
+            "offices": Office.objects.values_list("name", flat=True),
+        },
+    )

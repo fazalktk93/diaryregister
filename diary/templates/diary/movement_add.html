@@ -28,3 +28,9 @@
   </div>
 </div>
 {% endblock %}
+
+<datalist id="office-list">
+  {% for o in offices %}
+    <option value="{{ o }}">
+  {% endfor %}
+</datalist>
