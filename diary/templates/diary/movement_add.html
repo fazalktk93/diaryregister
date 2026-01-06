@@ -1,11 +1,30 @@
 {% extends "base.html" %}
+{% block title %}Add Movement{% endblock %}
+
 {% block content %}
-<h2>Add Movement - {{ diary.diary_no }}</h2>
+<div class="card">
+  <div class="card-header bg-dark text-white">
+    <strong>Add Movement — {{ diary.diary_no }}</strong>
+  </div>
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
 
-<form method="post">{% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Save Movement</button>
-</form>
+      {% for field in form %}
+        <div class="mb-3">
+          <label class="form-label">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}
+            <div class="text-danger small">{{ field.errors|striptags }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
 
-<p><a href="{% url 'diary_detail' diary.pk %}">Back</a></p>
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary">Save</button>
+        <a class="btn btn-outline-secondary" href="{% url 'diary_detail' diary.pk %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock %}

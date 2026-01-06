@@ -1,29 +1,81 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>Diary Register</h2>
-<p><a href="{% url 'diary_create' %}">New Diary</a> | <a href="/admin/">Admin</a></p>
+{% block title %}Diaries{% endblock %}
 
-<form method="get">
-  <input name="q" value="{{ q }}" placeholder="Search: 2026-12 or 12 or subject">
-  <input name="year" value="{{ year }}" placeholder="Year (optional)">
-  <button type="submit">Search</button>
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">Diaries</h3>
+</div>
+
+<form class="card card-body mb-3" method="get">
+  <div class="row g-2">
+    <div class="col-md-6">
+      <input class="form-control" name="q" value="{{ q }}" placeholder="Search: 2026-12, sequence, subject, office...">
+    </div>
+    <div class="col-md-2">
+      <input class="form-control" name="year" value="{{ year }}" placeholder="Year (e.g. 2026)">
+    </div>
+    <div class="col-md-2">
+      <select class="form-select" name="status">
+        <option value="">All Status</option>
+        {% for v,l in status_choices %}
+          <option value="{{ v }}" {% if status == v %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2 d-grid">
+      <button class="btn btn-primary">Filter</button>
+    </div>
+  </div>
 </form>
 
-<table border="1" cellpadding="6">
-  <tr>
-    <th>DiaryNo</th><th>Date</th><th>ReceivedFrom</th><th>MarkedTo</th><th>Status</th><th>Open</th>
-  </tr>
-  {% for d in diaries %}
-  <tr>
-    <td>{{ d.diary_no }}</td>
-    <td>{{ d.diary_date }}</td>
-    <td>{{ d.received_from }}</td>
-    <td>{{ d.marked_to }}</td>
-    <td>{{ d.status }}</td>
-    <td><a href="{% url 'diary_detail' d.pk %}">View</a></td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="6">No records</td></tr>
-  {% endfor %}
-</table>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-striped table-hover mb-0 align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>Diary No</th>
+          <th>Date</th>
+          <th>Received From</th>
+          <th>Subject</th>
+          <th>Status</th>
+          <th>Marked To</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in page_obj.object_list %}
+          <tr>
+            <td><strong>{{ d.diary_no }}</strong></td>
+            <td>{{ d.diary_date }}</td>
+            <td>{{ d.received_from|default:"-" }}</td>
+            <td class="text-truncate" style="max-width: 420px;">{{ d.subject|default:"-" }}</td>
+            <td><span class="badge bg-secondary">{{ d.status }}</span></td>
+            <td>{{ d.marked_to|default:"-" }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="{% url 'diary_detail' d.pk %}">Open</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="text-center py-4 text-muted">No diaries found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="card-footer d-flex justify-content-between align-items-center">
+    <div class="text-muted">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} total)
+    </div>
+    <div class="btn-group">
+      {% if page_obj.has_previous %}
+        <a class="btn btn-outline-secondary btn-sm" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.previous_page_number }}">Prev</a>
+      {% endif %}
+      {% if page_obj.has_next %}
+        <a class="btn btn-outline-secondary btn-sm" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.next_page_number }}">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}

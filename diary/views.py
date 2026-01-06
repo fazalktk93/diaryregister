@@ -1,4 +1,10 @@
+from __future__ import annotations
+
+import re
+
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -7,40 +13,57 @@ from .forms import DiaryCreateForm, MovementCreateForm
 from .models import Diary, DiaryMovement
 
 
+DIARYNO_RE = re.compile(r"^\s*(\d{4})\s*-\s*(\d+)\s*$")  # 2026-12
+
+
 @login_required
 def diary_list(request):
     q = (request.GET.get("q") or "").strip()
     year = (request.GET.get("year") or "").strip()
+    status = (request.GET.get("status") or "").strip()
 
     qs = Diary.objects.all()
 
     if year.isdigit():
         qs = qs.filter(year=int(year))
 
+    if status:
+        qs = qs.filter(status=status)
+
     if q:
-        # support: "2026-123" OR "123" OR text
-        if "-" in q:
-            y, s = q.split("-", 1)
-            if y.isdigit() and s.isdigit():
-                qs = qs.filter(year=int(y), sequence=int(s))
-            else:
-                qs = qs.filter(
-                    Q(subject__icontains=q)
-                    | Q(received_from__icontains=q)
-                    | Q(received_diary_no__icontains=q)
-                    | Q(marked_to__icontains=q)
-                )
+        m = DIARYNO_RE.match(q)
+        if m:
+            y = int(m.group(1))
+            s = int(m.group(2))
+            qs = qs.filter(year=y, sequence=s)
         elif q.isdigit():
-            qs = qs.filter(sequence=int(q))  # across all years
+            # Search by sequence across years (most common)
+            qs = qs.filter(sequence=int(q))
         else:
             qs = qs.filter(
                 Q(subject__icontains=q)
                 | Q(received_from__icontains=q)
                 | Q(received_diary_no__icontains=q)
+                | Q(file_letter__icontains=q)
                 | Q(marked_to__icontains=q)
+                | Q(remarks__icontains=q)
             )
 
-    return render(request, "diary/diary_list.html", {"diaries": qs[:500], "q": q, "year": year})
+    paginator = Paginator(qs, 25)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    return render(
+        request,
+        "diary/diary_list.html",
+        {
+            "page_obj": page_obj,
+            "q": q,
+            "year": year,
+            "status": status,
+            "status_choices": Diary.Status.choices,
+        },
+    )
 
 
 @login_required
@@ -50,26 +73,24 @@ def diary_create(request):
         if form.is_valid():
             diary = Diary.create_with_next_number(created_by=request.user, **form.cleaned_data)
 
-            # Create first movement automatically (Created)
             DiaryMovement.objects.create(
                 diary=diary,
-                year=diary.year,
-                sequence=diary.sequence,
                 from_office=diary.received_from or "Registry",
                 to_office=diary.received_from or "Registry",
-                action_type="Created",
+                action_type=DiaryMovement.ActionType.CREATED,
                 action_datetime=timezone.now(),
                 remarks="Initial diary created",
                 created_by=request.user,
             )
 
-            # snapshot update
-            diary.status = "Created"
+            diary.status = Diary.Status.CREATED
             diary.marked_to = diary.received_from or "Registry"
             diary.marked_date = timezone.localdate()
             diary.save(update_fields=["status", "marked_to", "marked_date"])
 
+            messages.success(request, f"Diary created: {diary.diary_no}")
             return redirect("diary_detail", pk=diary.pk)
+        messages.error(request, "Please correct the errors below.")
     else:
         form = DiaryCreateForm()
 
@@ -95,19 +116,25 @@ def movement_add(request, pk: int):
         if form.is_valid():
             mv = form.save(commit=False)
             mv.diary = diary
-            mv.year = diary.year
-            mv.sequence = diary.sequence
             mv.created_by = request.user
             mv.save()
 
-            # update snapshot
             diary.marked_to = mv.to_office
             diary.marked_date = timezone.localdate()
             diary.status = mv.action_type
             diary.save(update_fields=["marked_to", "marked_date", "status"])
 
+            messages.success(request, "Movement added successfully.")
             return redirect("diary_detail", pk=diary.pk)
+
+        messages.error(request, "Please correct the errors below.")
     else:
-        form = MovementCreateForm(initial={"from_office": default_from, "action_type": "Marked"})
+        form = MovementCreateForm(
+            initial={
+                "from_office": default_from,
+                "action_type": DiaryMovement.ActionType.MARKED,
+                "action_datetime": timezone.localtime(timezone.now()).replace(second=0, microsecond=0),
+            }
+        )
 
     return render(request, "diary/movement_add.html", {"form": form, "diary": diary})
