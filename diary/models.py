@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Max
 from django.utils import timezone
-# Removed erroneous self-import that caused a circular import
+
 
 class Office(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -77,6 +77,15 @@ class Diary(models.Model):
         if self.no_of_folders < 0:
             raise ValidationError({"no_of_folders": "Must be 0 or more."})
 
+    # ✅ ADDITIVE: keep Office table populated for autocomplete/search
+    def save(self, *args, **kwargs):
+        # Keep offices recorded (optional but very useful)
+        if self.received_from and self.received_from.strip():
+            Office.objects.get_or_create(name=self.received_from.strip())
+        if self.marked_to and self.marked_to.strip():
+            Office.objects.get_or_create(name=self.marked_to.strip())
+        super().save(*args, **kwargs)
+
     @classmethod
     def create_with_next_number(cls, *, created_by, **fields) -> "Diary":
         """
@@ -106,6 +115,7 @@ class Diary(models.Model):
             )
 
         return diary
+
 
 class DiaryMovement(models.Model):
     class ActionType(models.TextChoices):
@@ -150,4 +160,12 @@ class DiaryMovement(models.Model):
         if self.diary_id:
             self.year = self.diary.year
             self.sequence = self.diary.sequence
+
+        # ✅ ADDITIVE: record offices automatically for autocomplete / indexing
+        if self.from_office and self.from_office.strip():
+            Office.objects.get_or_create(name=self.from_office.strip())
+
+        if self.to_office and self.to_office.strip():
+            Office.objects.get_or_create(name=self.to_office.strip())
+
         super().save(*args, **kwargs)

@@ -27,9 +27,23 @@
     </form>
   </div>
 </div>
+
+<script>
+  // Enable "No. of folders" only when File is selected
+  document.addEventListener("DOMContentLoaded", function () {
+    const kind = document.getElementById("id_file_letter");
+    const folders = document.getElementById("id_no_of_folders");
+    if (!kind || !folders) return;
+
+    function syncFoldersState() {
+      const isFile = (kind.value || "").toLowerCase() === "file";
+      folders.disabled = !isFile;
+      folders.closest('.mb-3')?.classList.toggle('opacity-50', !isFile);
+      if (!isFile) folders.value = 0;
+    }
+
+    kind.addEventListener("change", syncFoldersState);
+    syncFoldersState();
+  });
+</script>
 {% endblock %}
-<datalist id="office-list">
-  {% for o in offices %}
-    <option value="{{ o }}">
-  {% endfor %}
-</datalist>

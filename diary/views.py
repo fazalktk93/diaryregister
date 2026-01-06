@@ -11,7 +11,6 @@ from django.utils import timezone
 
 from .forms import DiaryCreateForm, MovementCreateForm
 from .models import Diary, DiaryMovement
-from .models import Office
 
 
 DIARYNO_RE = re.compile(r"^\s*(\d{4})\s*-\s*(\d+)\s*$")  # 2026-12
@@ -23,6 +22,33 @@ def diary_list(request):
     year = (request.GET.get("year") or "").strip()
     status = (request.GET.get("status") or "").strip()
 
+    # ---- create (modal POST) ----
+    create_form = DiaryCreateForm()
+    if request.method == "POST":
+        create_form = DiaryCreateForm(request.POST)
+        if create_form.is_valid():
+            diary = Diary.create_with_next_number(created_by=request.user, **create_form.cleaned_data)
+
+            DiaryMovement.objects.create(
+                diary=diary,
+                from_office=diary.received_from or "Registry",
+                to_office=diary.received_from or "Registry",
+                action_type=DiaryMovement.ActionType.CREATED,
+                action_datetime=timezone.now(),
+                remarks="Initial diary created",
+                created_by=request.user,
+            )
+
+            diary.status = Diary.Status.CREATED
+            diary.marked_date = timezone.localdate()
+            diary.save(update_fields=["status", "marked_date"])
+
+            messages.success(request, f"Diary created: {diary.diary_no}")
+            return redirect("diary_detail", pk=diary.pk)
+
+        messages.error(request, "Please correct the errors in the form below.")
+
+    # ---- listing + filtering ----
     qs = Diary.objects.all()
 
     if year.isdigit():
@@ -38,7 +64,6 @@ def diary_list(request):
             s = int(m.group(2))
             qs = qs.filter(year=y, sequence=s)
         elif q.isdigit():
-            # Search by sequence across years (most common)
             qs = qs.filter(sequence=int(q))
         else:
             qs = qs.filter(
@@ -49,6 +74,9 @@ def diary_list(request):
                 | Q(marked_to__icontains=q)
                 | Q(remarks__icontains=q)
             )
+
+    # sequence-wise display (year desc, sequence asc)
+    qs = qs.order_by("-year", "sequence")
 
     paginator = Paginator(qs, 25)
     page_number = request.GET.get("page")
@@ -63,50 +91,41 @@ def diary_list(request):
             "year": year,
             "status": status,
             "status_choices": Diary.Status.choices,
+            "create_form": create_form,
         },
     )
 
 
 @login_required
 def diary_create(request):
+    # (Optional) keep this view working if you still want /new/
     if request.method == "POST":
         form = DiaryCreateForm(request.POST)
         if form.is_valid():
-            marked_to = form.cleaned_data.pop("marked_to")
-
-            diary = Diary.create_with_next_number(
-                created_by=request.user,
-                marked_to=marked_to,
-                marked_date=timezone.localdate(),
-                status=Diary.Status.CREATED,
-                **form.cleaned_data,
-            )
+            diary = Diary.create_with_next_number(created_by=request.user, **form.cleaned_data)
 
             DiaryMovement.objects.create(
                 diary=diary,
                 from_office=diary.received_from or "Registry",
-                to_office=marked_to,
+                to_office=diary.received_from or "Registry",
                 action_type=DiaryMovement.ActionType.CREATED,
                 action_datetime=timezone.now(),
-                remarks="Initial diary entry",
+                remarks="Initial diary created",
                 created_by=request.user,
             )
 
+            diary.status = Diary.Status.CREATED
+            diary.marked_date = timezone.localdate()
+            diary.save(update_fields=["status", "marked_date"])
+
             messages.success(request, f"Diary created: {diary.diary_no}")
             return redirect("diary_detail", pk=diary.pk)
+
         messages.error(request, "Please correct the errors below.")
     else:
         form = DiaryCreateForm()
 
-    return render(
-        request,
-        "diary/diary_create.html",
-        {
-            "form": form,
-            "offices": Office.objects.values_list("name", flat=True),
-        },
-    )
-
+    return render(request, "diary/diary_create.html", {"form": form})
 
 
 @login_required
@@ -149,12 +168,4 @@ def movement_add(request, pk: int):
             }
         )
 
-    return render(
-        request,
-        "diary/movement_add.html",
-        {
-            "form": form,
-            "diary": diary,
-            "offices": Office.objects.values_list("name", flat=True),
-        },
-    )
+    return render(request, "diary/movement_add.html", {"form": form, "diary": diary})

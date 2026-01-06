@@ -4,6 +4,9 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h3 class="mb-0">Diaries</h3>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newDiaryModal">
+    + New Diary
+  </button>
 </div>
 
 <form class="card card-body mb-3" method="get">
@@ -23,7 +26,7 @@
       </select>
     </div>
     <div class="col-md-2 d-grid">
-      <button class="btn btn-primary">Filter</button>
+      <button class="btn btn-outline-primary">Filter</button>
     </div>
   </div>
 </form>
@@ -33,10 +36,14 @@
     <table class="table table-striped table-hover mb-0 align-middle">
       <thead class="table-dark">
         <tr>
+          <!-- SEQUENCE-WISE columns (as requested) -->
           <th>Diary No</th>
-          <th>Date</th>
+          <th>Received Diary No</th>
           <th>Received From</th>
+          <th>File / Letter</th>
+          <th class="text-end">Folders</th>
           <th>Subject</th>
+          <th>Remarks</th>
           <th>Status</th>
           <th>Marked To</th>
           <th></th>
@@ -45,18 +52,32 @@
       <tbody>
         {% for d in page_obj.object_list %}
           <tr>
-            <td><strong>{{ d.diary_no }}</strong></td>
-            <td>{{ d.diary_date }}</td>
+            <td>
+              <strong>{{ d.diary_no }}</strong>
+              <div class="small text-muted">{{ d.diary_date }}</div>
+            </td>
+
+            <td>{{ d.received_diary_no|default:"-" }}</td>
             <td>{{ d.received_from|default:"-" }}</td>
-            <td class="text-truncate" style="max-width: 420px;">{{ d.subject|default:"-" }}</td>
+            <td>{{ d.file_letter|default:"-" }}</td>
+            <td class="text-end">
+              {% if d.file_letter == "File" %}
+                {{ d.no_of_folders }}
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td class="text-truncate" style="max-width: 320px;">{{ d.subject|default:"-" }}</td>
+            <td class="text-truncate" style="max-width: 260px;">{{ d.remarks|default:"-" }}</td>
             <td><span class="badge bg-secondary">{{ d.status }}</span></td>
             <td>{{ d.marked_to|default:"-" }}</td>
+
             <td class="text-end">
               <a class="btn btn-sm btn-outline-primary" href="{% url 'diary_detail' d.pk %}">Open</a>
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="7" class="text-center py-4 text-muted">No diaries found.</td></tr>
+          <tr><td colspan="10" class="text-center py-4 text-muted">No diaries found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -78,4 +99,135 @@
   </div>
   {% endif %}
 </div>
+
+<!-- ========== New Diary Modal ========== -->
+<div class="modal fade" id="newDiaryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <!-- POST to same list view so errors can reopen modal -->
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title">Create New Diary</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          {% if create_form %}
+
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label">{{ create_form.diary_date.label }}</label>
+                {{ create_form.diary_date }}
+                {% if create_form.diary_date.errors %}
+                  <div class="text-danger small">{{ create_form.diary_date.errors|striptags }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">{{ create_form.received_diary_no.label }}</label>
+                {{ create_form.received_diary_no }}
+                {% if create_form.received_diary_no.errors %}
+                  <div class="text-danger small">{{ create_form.received_diary_no.errors|striptags }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">{{ create_form.received_from.label }}</label>
+                {{ create_form.received_from }}
+                {% if create_form.received_from.errors %}
+                  <div class="text-danger small">{{ create_form.received_from.errors|striptags }}</div>
+                {% endif %}
+              </div>
+            <div class="col-md-4">
+            <label class="form-label">{{ create_form.marked_to.label }}</label>
+            {{ create_form.marked_to }}
+            {% if create_form.marked_to.errors %}
+                <div class="text-danger small">{{ create_form.marked_to.errors|striptags }}</div>
+            {% endif %}
+            </div>
+
+              <div class="col-md-4">
+                <label class="form-label">{{ create_form.file_letter.label }}</label>
+                {{ create_form.file_letter }}
+                {% if create_form.file_letter.errors %}
+                  <div class="text-danger small">{{ create_form.file_letter.errors|striptags }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">{{ create_form.no_of_folders.label }}</label>
+                {{ create_form.no_of_folders }}
+                {% if create_form.no_of_folders.errors %}
+                  <div class="text-danger small">{{ create_form.no_of_folders.errors|striptags }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-12">
+                <label class="form-label">{{ create_form.subject.label }}</label>
+                {{ create_form.subject }}
+                {% if create_form.subject.errors %}
+                  <div class="text-danger small">{{ create_form.subject.errors|striptags }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-12">
+                <label class="form-label">{{ create_form.remarks.label }}</label>
+                {{ create_form.remarks }}
+                {% if create_form.remarks.errors %}
+                  <div class="text-danger small">{{ create_form.remarks.errors|striptags }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            {% if create_form.non_field_errors %}
+              <div class="alert alert-danger mt-3 mb-0">{{ create_form.non_field_errors }}</div>
+            {% endif %}
+
+          {% else %}
+            <div class="alert alert-info mb-0">
+              Create form not provided.
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Enable "No. of folders" only when File is selected
+  document.addEventListener("DOMContentLoaded", function () {
+    const kind = document.getElementById("id_file_letter");
+    const folders = document.getElementById("id_no_of_folders");
+
+    function syncFoldersState() {
+      if (!kind || !folders) return;
+      const isFile = (kind.value || "").toLowerCase() === "file";
+      folders.disabled = !isFile;
+
+      const wrap = folders.closest(".col-md-4") || folders.closest(".mb-3");
+      if (wrap) wrap.classList.toggle("opacity-50", !isFile);
+
+      if (!isFile) folders.value = 0;
+    }
+
+    if (kind && folders) {
+      kind.addEventListener("change", syncFoldersState);
+      syncFoldersState();
+    }
+
+    // If server returned errors, reopen modal automatically
+    {% if create_form and create_form.errors %}
+      const el = document.getElementById("newDiaryModal");
+      if (el) new bootstrap.Modal(el).show();
+    {% endif %}
+  });
+</script>
+
 {% endblock %}
