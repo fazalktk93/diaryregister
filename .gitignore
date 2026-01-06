@@ -1,0 +1,7 @@
+*pycache
+config/__pycache__/__init__.cpython-311.pyc
+config/__pycache__/settings.cpython-311.pyc
+config/__pycache__/urls.cpython-311.pyc
+config/__pycache__/wsgi.cpython-311.pyc
+
+config/__pycache__*

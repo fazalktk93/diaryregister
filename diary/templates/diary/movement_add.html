@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Add Movement - {{ diary.diary_no }}</h2>
+
+<form method="post">{% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Save Movement</button>
+</form>
+
+<p><a href="{% url 'diary_detail' diary.pk %}">Back</a></p>
+{% endblock %}

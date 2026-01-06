@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Diary {{ diary.diary_no }}</h2>
+
+<p>
+  <b>Date:</b> {{ diary.diary_date }}<br>
+  <b>Received From:</b> {{ diary.received_from }}<br>
+  <b>Received Diary No:</b> {{ diary.received_diary_no }}<br>
+  <b>File/Letter:</b> {{ diary.file_letter }}<br>
+  <b>No of Folders:</b> {{ diary.no_of_folders }}<br>
+  <b>Subject:</b> {{ diary.subject }}<br>
+  <b>Remarks:</b> {{ diary.remarks }}<br>
+  <b>Status:</b> {{ diary.status }}<br>
+  <b>Marked To:</b> {{ diary.marked_to }}<br>
+  <b>Marked Date:</b> {{ diary.marked_date }}<br>
+</p>
+
+<p><a href="{% url 'movement_add' diary.pk %}">Add Movement</a></p>
+
+<h3>Movement History</h3>
+<table border="1" cellpadding="6">
+  <tr>
+    <th>Date/Time</th><th>From</th><th>To</th><th>Action</th><th>Remarks</th><th>User</th>
+  </tr>
+  {% for m in movements %}
+  <tr>
+    <td>{{ m.action_datetime }}</td>
+    <td>{{ m.from_office }}</td>
+    <td>{{ m.to_office }}</td>
+    <td>{{ m.action_type }}</td>
+    <td>{{ m.remarks }}</td>
+    <td>{{ m.created_by.username }}</td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="6">No movements</td></tr>
+  {% endfor %}
+</table>
+
+<p><a href="{% url 'diary_list' %}">Back</a></p>
+{% endblock %}

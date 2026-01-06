@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Diary Register</h2>
+<p><a href="{% url 'diary_create' %}">New Diary</a> | <a href="/admin/">Admin</a></p>
+
+<form method="get">
+  <input name="q" value="{{ q }}" placeholder="Search: 2026-12 or 12 or subject">
+  <input name="year" value="{{ year }}" placeholder="Year (optional)">
+  <button type="submit">Search</button>
+</form>
+
+<table border="1" cellpadding="6">
+  <tr>
+    <th>DiaryNo</th><th>Date</th><th>ReceivedFrom</th><th>MarkedTo</th><th>Status</th><th>Open</th>
+  </tr>
+  {% for d in diaries %}
+  <tr>
+    <td>{{ d.diary_no }}</td>
+    <td>{{ d.diary_date }}</td>
+    <td>{{ d.received_from }}</td>
+    <td>{{ d.marked_to }}</td>
+    <td>{{ d.status }}</td>
+    <td><a href="{% url 'diary_detail' d.pk %}">View</a></td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="6">No records</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}
