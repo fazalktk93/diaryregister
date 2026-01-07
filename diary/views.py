@@ -32,7 +32,7 @@ def diary_list(request):
             DiaryMovement.objects.create(
                 diary=diary,
                 from_office=diary.received_from or "Registry",
-                to_office=diary.received_from or "Registry",
+                to_office=diary.marked_to or (diary.received_from or "Registry"),
                 action_type=DiaryMovement.ActionType.CREATED,
                 action_datetime=timezone.now(),
                 remarks="Initial diary created",
@@ -107,7 +107,7 @@ def diary_create(request):
             DiaryMovement.objects.create(
                 diary=diary,
                 from_office=diary.received_from or "Registry",
-                to_office=diary.received_from or "Registry",
+                to_office=diary.marked_to or (diary.received_from or "Registry"),
                 action_type=DiaryMovement.ActionType.CREATED,
                 action_datetime=timezone.now(),
                 remarks="Initial diary created",
@@ -169,3 +169,22 @@ def movement_add(request, pk: int):
         )
 
     return render(request, "diary/movement_add.html", {"form": form, "diary": diary})
+
+@login_required
+def diary_year_report(request, year: int):
+    """End-of-year report: one row per diary, with movement history in a single column."""
+    qs = (
+        Diary.objects.filter(year=year)
+        .select_related("created_by")
+        .prefetch_related("movements")
+        .order_by("sequence")
+    )
+
+    return render(
+        request,
+        "diary/year_report.html",
+        {
+            "year": year,
+            "diaries": qs,
+        },
+    )

@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Max
 from django.utils import timezone
+from django.utils.html import format_html
 
 
 class Office(models.Model):
@@ -71,6 +72,40 @@ class Diary(models.Model):
     @property
     def diary_no(self) -> str:
         return f"{self.year}-{self.sequence:06d}"
+
+    def movement_history_html(self) -> str:
+        """
+        Register-style single column history:
+        - older destinations struck-through
+        - last destination plain text
+        """
+        mvs = list(self.movements.all().order_by("action_datetime", "id"))
+        if not mvs:
+            return "-"
+
+        last_idx = len(mvs) - 1
+
+        def _label(mv: "DiaryMovement") -> str:
+            d = timezone.localtime(mv.action_datetime).date()
+            # change dd-mm to dd-mm-yyyy if you want:
+            # return f"{mv.to_office} {d.strftime('%d-%m-%Y')}"
+            return f"{(mv.to_office or '-') } {d.strftime('%d-%m')}"
+
+        parts = []
+        for i, mv in enumerate(mvs):
+            label = _label(mv)
+            if i != last_idx:
+                parts.append(format_html("<s>{}</s>", label))
+            else:
+                parts.append(format_html("{}", label))
+
+        # Join with " / " like the physical register
+        out = parts[0]
+        sep = format_html(" / ")
+        for p in parts[1:]:
+            out = format_html("{}{}{}", out, sep, p)
+        return out
+
 
     def clean(self):
         super().clean()

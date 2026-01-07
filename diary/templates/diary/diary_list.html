@@ -3,7 +3,14 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex gap-2 align-items-center">
   <h3 class="mb-0">Diaries</h3>
+  {% if year and year|length == 4 %}
+    <a class="btn btn-sm btn-outline-dark" href="{% url 'diary_year_report' year %}">
+      Year Report
+    </a>
+  {% endif %}
+</div>
   <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newDiaryModal">
     + New Diary
   </button>
