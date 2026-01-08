@@ -1,40 +1,111 @@
 {% extends "base.html" %}
+{% block title %}Diary {{ diary.diary_no }}{% endblock %}
+
 {% block content %}
-<h2>Diary {{ diary.diary_no }}</h2>
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h3 class="mb-1">Diary <span class="text-muted">{{ diary.diary_no }}</span></h3>
+    {% if can_view_sensitive %}
+      <div class="text-muted">Created: {{ diary.created_at }} by {{ diary.created_by }}</div>
+    {% else %}
+      <div class="text-muted">Created: {{ diary.created_at }}</div>
+    {% endif %}
+  </div>
+  <div>
+    <a class="btn btn-primary" href="{% url 'movement_add' diary.pk %}">+ Add Movement</a>
+    {% if can_view_sensitive %}
+      <a class="btn btn-warning" href="{% url 'diary_edit' diary.pk %}">Edit</a>
+      <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">Delete</button>
+    {% endif %}
+  </div>
+</div>
 
-<p>
-  <b>Date:</b> {{ diary.diary_date }}<br>
-  <b>Received From:</b> {{ diary.received_from }}<br>
-  <b>Received Diary No:</b> {{ diary.received_diary_no }}<br>
-  <b>File/Letter:</b> {{ diary.file_letter }}<br>
-  <b>No of Folders:</b> {{ diary.no_of_folders }}<br>
-  <b>Subject:</b> {{ diary.subject }}<br>
-  <b>Remarks:</b> {{ diary.remarks }}<br>
-  <b>Status:</b> {{ diary.status }}<br>
-  <b>Marked To:</b> {{ diary.marked_to }}<br>
-  <b>Marked Date:</b> {{ diary.marked_date }}<br>
-</p>
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">Details</div>
+      <div class="card-body">
+        <div><strong>Date:</strong> {{ diary.diary_date }}</div>
+        <div><strong>Received From:</strong> {{ diary.received_from|default:"-" }}</div>
+        <div><strong>Received Diary No:</strong> {{ diary.received_diary_no|default:"-" }}</div>
+        <div><strong>File/Letter:</strong> {{ diary.file_letter|default:"-" }}</div>
+        <div><strong>Folders:</strong> {{ diary.no_of_folders }}</div>
+        <hr>
+        <div><strong>Subject:</strong><br>{{ diary.subject|linebreaksbr }}</div>
+        <div class="mt-2"><strong>Remarks:</strong><br>{{ diary.remarks|linebreaksbr }}</div>
+      </div>
+    </div>
+  </div>
 
-<p><a href="{% url 'movement_add' diary.pk %}">Add Movement</a></p>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">Current Status</div>
+      <div class="card-body">
+        <div><strong>Status:</strong> <span class="badge bg-secondary">{{ diary.status }}</span></div>
+        <div class="mt-2"><strong>Marked To:</strong> {{ diary.marked_to|default:"-" }}</div>
+        <div><strong>Marked Date:</strong> {{ diary.marked_date|default:"-" }}</div>
+      </div>
+    </div>
+  </div>
+</div>
 
-<h3>Movement History</h3>
-<table border="1" cellpadding="6">
-  <tr>
-    <th>Date/Time</th><th>From</th><th>To</th><th>Action</th><th>Remarks</th><th>User</th>
-  </tr>
-  {% for m in movements %}
-  <tr>
-    <td>{{ m.action_datetime }}</td>
-    <td>{{ m.from_office }}</td>
-    <td>{{ m.to_office }}</td>
-    <td>{{ m.action_type }}</td>
-    <td>{{ m.remarks }}</td>
-    <td>{{ m.created_by.username }}</td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="6">No movements</td></tr>
-  {% endfor %}
-</table>
+<div class="card">
+  <div class="card-header">Movement History</div>
+  <div class="table-responsive">
+    <table class="table table-striped mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Date/Time</th>
+          <th>Action</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Remarks</th>
+          {% if can_view_sensitive %}
+            <th>By</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in movements %}
+          <tr>
+            <td>{{ m.action_datetime }}</td>
+            <td><span class="badge bg-info text-dark">{{ m.action_type }}</span></td>
+            <td>{{ m.from_office|default:"-" }}</td>
+            <td>{{ m.to_office|default:"-" }}</td>
+            <td class="text-truncate" style="max-width: 420px;">{{ m.remarks|default:"-" }}</td>
+            {% if can_view_sensitive %}
+              <td>{{ m.created_by }}</td>
+            {% endif %}
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="text-center py-4 text-muted">No movements yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 
-<p><a href="{% url 'diary_list' %}">Back</a></p>
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">Delete Diary</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete diary <strong>{{ diary.diary_no }}</strong>?</p>
+        <p class="text-danger mb-0">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <form method="post" action="{% url 'diary_delete' diary.pk %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}

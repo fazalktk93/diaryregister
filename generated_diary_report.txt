@@ -1,0 +1,509 @@
+Diary Record of Administration Directorate year 2026
+ 
+Diary No
+Date
+Rcvd No
+Rcvd From
+File/Letter
+Folders
+Subject
+History
+1
+2026-01-06
+44
+ao-i
+-
+0
+-
+ao-i 06-01 / fazal 06-01
+2
+2026-01-06
+-
+ad -a
+-
+0
+-
+ad -a 06-01 / ao-i 06-01 / fazal 06-01
+3
+2026-01-06
+-
+dda
+-
+0
+-
+dda 06-01
+4
+2026-01-06
+-
+director
+-
+0
+-
+dda 06-01
+5
+2026-01-06
+5
+dg
+-
+2
+-
+dda 06-01 / ad-a 06-01 / AO-i 08-01
+6
+2026-01-06
+780
+DGA
+file
+3
+test usbject
+ADA 06-01 / DDA 06-01 / ADA 06-01
+7
+2026-01-06
+35
+ADA
+File
+4
+test
+ADA 06-01
+8
+2026-01-06
+23
+ADA
+File
+1
+-
+ADA 06-01
+9
+2026-01-06
+6
+ADA
+File
+2
+-
+ADA 06-01
+10
+2026-01-06
+23
+ada
+File
+1
+-
+AO-II 06-01
+11
+2026-01-07
+76
+MA
+File
+2
+test subject
+DDA 07-01 / DGA 07-01 / DDA 07-01
+12
+2026-01-07
+33
+DGA
+Letter
+0
+test
+DDA 07-01
+13
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+14
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+15
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+16
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+17
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+18
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+19
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+20
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+21
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+22
+2026-01-08
+6
+DGA
+Letter
+0
+tre
+DDA 08-01
+23
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+24
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+25
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+26
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+27
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+28
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+Page 1 of 3
+Diary No
+Date
+Rcvd No
+Rcvd From
+File/Letter
+Folders
+Subject
+History
+29
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+30
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000001
+2026-01-06
+44
+ao-i
+-
+0
+-
+ao-i 06-01 / ao-i 06-01 / fazal 06-01
+2026-000002
+2026-01-06
+-
+ad -a
+-
+0
+-
+ad -a 06-01 / ao-i 06-01 / fazal 06-01
+2026-000003
+2026-01-06
+-
+dda
+-
+0
+-
+dda 06-01
+2026-000004
+2026-01-06
+-
+director
+-
+0
+-
+dda 06-01
+2026-000005
+2026-01-06
+5
+dg
+-
+2
+-
+dda 06-01 / ad-a 06-01 / AO-i 08-01
+2026-000006
+2026-01-06
+780
+DGA
+file
+3
+test usbject
+ADA 06-01 / DDA 06-01 / ADA 06-01
+2026-000007
+2026-01-06
+35
+ADA
+File
+4
+test
+ADA 06-01
+2026-000008
+2026-01-06
+23
+ADA
+File
+1
+-
+ADA 06-01
+2026-000009
+2026-01-06
+6
+ADA
+File
+2
+-
+ADA 06-01
+2026-000010
+2026-01-06
+23
+ada
+File
+1
+-
+AO-II 06-01
+2026-000011
+2026-01-07
+76
+MA
+File
+2
+test subject
+DDA 07-01 / DGA 07-01 / DDA 07-01
+2026-000012
+2026-01-07
+33
+DGA
+Letter
+0
+test
+DDA 07-01
+2026-000013
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000014
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000015
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000016
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000017
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000018
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000019
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000020
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000021
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000022
+2026-01-08
+6
+DGA
+Letter
+0
+tre
+DDA 08-01
+2026-000023
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000024
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000025
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000026
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000027
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000028
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+Page 2 of 3
+Diary No
+Date
+Rcvd No
+Rcvd From
+File/Letter
+Folders
+Subject
+History
+2026-000029
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+2026-000030
+2026-01-08
+-
+Office X
+-
+0
+-
+Test Office 08-01
+Page 3 of 3

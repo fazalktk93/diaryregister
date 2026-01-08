@@ -5,3 +5,5 @@ config/__pycache__/urls.cpython-311.pyc
 config/__pycache__/wsgi.cpython-311.pyc
 
 config/__pycache__*
+dv.sqlite3
+diary/migrations/__pycache__*
