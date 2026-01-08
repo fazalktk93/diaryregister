@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">Reports</h3>
+
+  <button class="btn btn-outline-info" type="button" id="btnPdfLocal">
+    Generate PDF
+  </button>
+</div>
+
+<form method="get" class="card mb-3">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-sm-3">
+        <label class="form-label mb-1">Year</label>
+        <input class="form-control" name="year" value="{{ filters.year }}" placeholder="e.g. 2026" inputmode="numeric">
+      </div>
+      <div class="col-sm-auto">
+        <button class="btn btn-primary">Apply</button>
+      </div>
+      <div class="col-sm-auto">
+        <a class="btn btn-outline-secondary" href="{% url 'reports_table' %}">Reset</a>
+      </div>
+      <div class="col text-muted small">
+        Tip: Fill any column filter and click Apply. Paging stays fast with indexes + 50/page.
+      </div>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-striped table-hover mb-0 align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>Diary No</th>
+          <th>Date</th>
+          <th>Rcvd No</th>
+          <th>Rcvd From</th>
+          <th>File/Letter</th>
+          <th>Folders</th>
+          <th>Subject</th>
+          <th>Remarks</th>
+          <th>Status</th>
+          <th>History</th>
+          <th>Current</th>
+        </tr>
+        <tr class="bg-light">
+          <th><input class="form-control form-control-sm" name="diary_no" value="{{ filters.diary_no }}" placeholder="2026-12"></th>
+          <th></th>
+          <th><input class="form-control form-control-sm" name="received_diary_no" value="{{ filters.received_diary_no }}" placeholder="No"></th>
+          <th><input class="form-control form-control-sm" name="received_from" value="{{ filters.received_from }}" placeholder="Office"></th>
+          <th><input class="form-control form-control-sm" name="file_letter" value="{{ filters.file_letter }}" placeholder="File"></th>
+          <th><input class="form-control form-control-sm" name="no_of_folders" value="{{ filters.no_of_folders }}" placeholder="0"></th>
+          <th><input class="form-control form-control-sm" name="subject" value="{{ filters.subject }}" placeholder="Subject"></th>
+          <th><input class="form-control form-control-sm" name="remarks" value="{{ filters.remarks }}" placeholder="Remarks"></th>
+          <th>
+            <select class="form-select form-select-sm" name="status">
+              <option value="">All</option>
+              {% for v,l in status_choices %}
+                <option value="{{ v }}" {% if filters.status == v %}selected{% endif %}>{{ l }}</option>
+              {% endfor %}
+            </select>
+          </th>
+          <th></th>
+          <th><input class="form-control form-control-sm" name="marked_to" value="{{ filters.marked_to }}" placeholder="Current"></th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for d in page_obj.object_list %}
+          <tr>
+            <td><strong>{{ d.diary_no_short }}</strong></td>
+            <td>{{ d.diary_date }}</td>
+            <td>{{ d.received_diary_no|default:"-" }}</td>
+            <td>{{ d.received_from|default:"-" }}</td>
+            <td>{{ d.file_letter|default:"-" }}</td>
+            <td>{{ d.no_of_folders }}</td>
+            <td class="text-truncate" style="max-width: 260px;">{{ d.subject|default:"-" }}</td>
+            <td class="text-truncate" style="max-width: 220px;">{{ d.remarks|default:"-" }}</td>
+            <td><span class="badge bg-secondary">{{ d.status }}</span></td>
+            <td class="small">{{ d.movement_history_plain }}</td>
+            <td>{{ d.marked_to|default:"-" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="11" class="text-center text-muted py-4">No records found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <div class="text-muted small">
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} total)
+      </div>
+      <div class="btn-group">
+        {% if page_obj.has_previous %}
+          <button class="btn btn-outline-secondary btn-sm" name="page" value="{{ page_obj.previous_page_number }}">Prev</button>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <button class="btn btn-outline-secondary btn-sm" name="page" value="{{ page_obj.next_page_number }}">Next</button>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</form>
+
+<script>
+  (function () {
+    const btn = document.getElementById("btnPdfLocal");
+    if (!btn) return;
+
+    btn.addEventListener("click", function () {
+      const year = prompt("Enter year for PDF (e.g. 2026):", "{{ filters.year|default:'' }}");
+      if (!year) return;
+      const y = year.trim();
+      if (!/^\d{4}$/.test(y)) {
+        alert("Please enter a valid 4-digit year (e.g. 2026).");
+        return;
+      }
+      const url = "{% url 'reports_pdf' 2000 %}".replace("2000", y);
+      window.open(url, "_blank", "noopener,noreferrer");
+    });
+  })();
+</script>
+{% endblock %}

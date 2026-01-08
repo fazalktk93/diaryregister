@@ -36,9 +36,7 @@ class DiaryCreateForm(forms.ModelForm):
             "file_letter": forms.Select(attrs={"class": BOOTSTRAP_SELECT_CLASS}),
             # Use a widget instance here (NumberInput). Previously this incorrectly used
             # forms.IntegerField in the Meta.widgets mapping which is a Form Field, not a Widget.
-            "no_of_folders": forms.NumberInput(
-                attrs={"class": "form-control", "min": 0, "inputmode": "numeric"}
-            ),
+            "no_of_folders": forms.NumberInput(attrs={"class": "form-control", "min": 0, "inputmode": "numeric"}),
             "subject": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 2}),
             "remarks": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 2}),
         }
@@ -51,6 +49,14 @@ class DiaryCreateForm(forms.ModelForm):
         widget=forms.Select(attrs={"class": BOOTSTRAP_SELECT_CLASS}),
         required=True,
         initial="Letter",
+    )
+
+    # Make the field optional at the form level so disabled inputs (not submitted)
+    # don't trigger a required-field error; clean() enforces when File is selected.
+    no_of_folders = forms.IntegerField(
+        required=False,
+        min_value=0,
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": 0, "inputmode": "numeric"}),
     )
 
     def clean(self):

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Edit Diary {{ diary.diary_no }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h3 class="mb-1">Edit Diary <span class="text-muted">{{ diary.diary_no }}</span></h3>
+  <a href="{% url 'diary_detail' diary.pk %}">← Back to Diary</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">{{ form.diary_date.label }}</label>
+          {{ form.diary_date }}
+          {% if form.diary_date.errors %}
+            <div class="text-danger small">{{ form.diary_date.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">{{ form.received_diary_no.label }}</label>
+          {{ form.received_diary_no }}
+          {% if form.received_diary_no.errors %}
+            <div class="text-danger small">{{ form.received_diary_no.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">{{ form.received_from.label }}</label>
+          {{ form.received_from }}
+          {% if form.received_from.errors %}
+            <div class="text-danger small">{{ form.received_from.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">{{ form.marked_to.label }}</label>
+          {{ form.marked_to }}
+          {% if form.marked_to.errors %}
+            <div class="text-danger small">{{ form.marked_to.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">{{ form.file_letter.label }}</label>
+          {{ form.file_letter }}
+          {% if form.file_letter.errors %}
+            <div class="text-danger small">{{ form.file_letter.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">{{ form.no_of_folders.label }}</label>
+          {{ form.no_of_folders }}
+          {% if form.no_of_folders.errors %}
+            <div class="text-danger small">{{ form.no_of_folders.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-12">
+          <label class="form-label">{{ form.subject.label }}</label>
+          {{ form.subject }}
+          {% if form.subject.errors %}
+            <div class="text-danger small">{{ form.subject.errors|striptags }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-12">
+          <label class="form-label">{{ form.remarks.label }}</label>
+          {{ form.remarks }}
+          {% if form.remarks.errors %}
+            <div class="text-danger small">{{ form.remarks.errors|striptags }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger mt-3">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="mt-4">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="{% url 'diary_detail' diary.pk %}" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Enable "No. of folders" only when File is selected
+  document.addEventListener("DOMContentLoaded", function () {
+    const kind = document.getElementById("id_file_letter");
+    const folders = document.getElementById("id_no_of_folders");
+
+    function syncFoldersState() {
+      if (!kind || !folders) return;
+      const isFile = (kind.value || "").toLowerCase() === "file";
+      folders.disabled = !isFile;
+
+      const wrap = folders.closest(".col-md-4") || folders.closest(".mb-3");
+      if (wrap) wrap.classList.toggle("opacity-50", !isFile);
+
+      if (!isFile) folders.value = 0;
+    }
+
+    if (kind && folders) {
+      kind.addEventListener("change", syncFoldersState);
+      syncFoldersState();
+    }
+  });
+</script>
+{% endblock %}

@@ -9,23 +9,37 @@
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-  <div class="container">
-    <a class="navbar-brand" href="{% url 'diary_list' %}">Diary Register</a>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+  <a class="navbar-brand" href="{% url 'dashboard' %}">Diary Register</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav" aria-controls="topNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
 
-    <div class="d-flex gap-2">
-      {% if user.is_authenticated %}
-        <span class="navbar-text text-white-50">Hi, {{ user.username }}</span>
-        <a class="btn btn-outline-light btn-sm" href="{% url 'diary_create' %}">+ New Diary</a>
-        <a class="btn btn-outline-warning btn-sm" href="{% url 'logout' %}">Logout</a>
-      {% else %}
-        <a class="btn btn-outline-light btn-sm" href="{% url 'login' %}">Login</a>
-      {% endif %}
+      <div class="collapse navbar-collapse" id="topNav">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item"><a class="nav-link" href="{% url 'diary_list' %}">Diary</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'reports_table' %}">Reports</a></li>
+        </ul>
+
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+          {% if request.user.is_authenticated %}
+            <li class="nav-item d-flex align-items-center me-2 text-white">Signed in as {{ request.user.get_username }}</li>
+            <li class="nav-item">
+              <form method="post" action="{% url 'logout' %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+              </form>
+            </li>
+          {% else %}
+            <li class="nav-item"><a class="btn btn-outline-light btn-sm" href="{% url 'login' %}">Login</a></li>
+          {% endif %}
+        </ul>
+      </div>
     </div>
-  </div>
-</nav>
+  </nav>
 
-<main class="container py-4">
+  <main class="container py-4">
   {% if messages %}
     {% for m in messages %}
       <div class="alert alert-{{ m.tags }} mb-3" role="alert">{{ m }}</div>

@@ -5,9 +5,19 @@
 <div class="d-flex justify-content-between align-items-start mb-3">
   <div>
     <h3 class="mb-1">Diary <span class="text-muted">{{ diary.diary_no }}</span></h3>
-    <div class="text-muted">Created: {{ diary.created_at }} by {{ diary.created_by }}</div>
+    {% if can_view_sensitive %}
+      <div class="text-muted">Created: {{ diary.created_at }} by {{ diary.created_by }}</div>
+    {% else %}
+      <div class="text-muted">Created: {{ diary.created_at }}</div>
+    {% endif %}
   </div>
-  <a class="btn btn-primary" href="{% url 'movement_add' diary.pk %}">+ Add Movement</a>
+  <div>
+    <a class="btn btn-primary" href="{% url 'movement_add' diary.pk %}">+ Add Movement</a>
+    {% if can_view_sensitive %}
+      <a class="btn btn-warning" href="{% url 'diary_edit' diary.pk %}">Edit</a>
+      <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">Delete</button>
+    {% endif %}
+  </div>
 </div>
 
 <div class="row g-3 mb-3">
@@ -50,7 +60,9 @@
           <th>From</th>
           <th>To</th>
           <th>Remarks</th>
-          <th>By</th>
+          {% if can_view_sensitive %}
+            <th>By</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody>
@@ -61,7 +73,9 @@
             <td>{{ m.from_office|default:"-" }}</td>
             <td>{{ m.to_office|default:"-" }}</td>
             <td class="text-truncate" style="max-width: 420px;">{{ m.remarks|default:"-" }}</td>
-            <td>{{ m.created_by }}</td>
+            {% if can_view_sensitive %}
+              <td>{{ m.created_by }}</td>
+            {% endif %}
           </tr>
         {% empty %}
           <tr><td colspan="6" class="text-center py-4 text-muted">No movements yet.</td></tr>
@@ -70,4 +84,28 @@
     </table>
   </div>
 </div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">Delete Diary</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete diary <strong>{{ diary.diary_no }}</strong>?</p>
+        <p class="text-danger mb-0">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <form method="post" action="{% url 'diary_delete' diary.pk %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}

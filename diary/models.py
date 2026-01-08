@@ -64,7 +64,12 @@ class Diary(models.Model):
             models.Index(fields=["year", "sequence"]),
             models.Index(fields=["diary_date"]),
             models.Index(fields=["status"]),
+            models.Index(fields=["received_diary_no"]),
+            models.Index(fields=["received_from"]),
+            models.Index(fields=["file_letter"]),
+            models.Index(fields=["marked_to"]),
         ]
+
 
     def __str__(self) -> str:
         return self.diary_no
@@ -72,6 +77,11 @@ class Diary(models.Model):
     @property
     def diary_no(self) -> str:
         return f"{self.year}-{self.sequence:06d}"
+
+    @property
+    def diary_no_short(self) -> str:
+        """Compact diary number used for reports: no zero-padding on sequence."""
+        return f"{self.year}-{self.sequence}"
 
     def movement_history_html(self) -> str:
         """
@@ -105,6 +115,23 @@ class Diary(models.Model):
         for p in parts[1:]:
             out = format_html("{}{}{}", out, sep, p)
         return out
+
+    def movement_history_plain(self) -> str:
+        """
+        Plain-text movement history suitable for web tables where HTML strike
+        formatting is undesirable. Older entries are left as plain text but
+        are not struck-through; entries are joined with ' / '.
+        """
+        mvs = list(self.movements.all().order_by("action_datetime", "id"))
+        if not mvs:
+            return "-"
+
+        parts = []
+        for mv in mvs:
+            d = timezone.localtime(mv.action_datetime).date()
+            parts.append(f"{(mv.to_office or '-') } {d.strftime('%d-%m')}")
+
+        return " / ".join(parts)
 
 
     def clean(self):

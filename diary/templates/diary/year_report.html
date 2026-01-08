@@ -19,7 +19,6 @@
           <th style="white-space:nowrap">Date</th>
           <th>Subject</th>
           <th>Movement History (single column)</th>
-          <th style="white-space:nowrap">Current</th>
         </tr>
       </thead>
       <tbody>
@@ -27,16 +26,15 @@
           <tr>
             <td>
               <a class="text-decoration-none" href="{% url 'diary_detail' d.pk %}">
-                <strong>{{ d.diary_no }}</strong>
-              </a>
+                  <strong>{{ d.diary_no_short }}</strong>
+                </a>
             </td>
             <td>{{ d.diary_date }}</td>
             <td class="text-truncate" style="max-width: 420px;">{{ d.subject|default:"-" }}</td>
             <td><span class="small">{{ d.movement_history_html|safe }}</span></td>
-            <td>{{ d.marked_to|default:"-" }}</td>
           </tr>
         {% empty %}
-          <tr><td colspan="5" class="text-center py-4 text-muted">No diaries found for {{ year }}.</td></tr>
+          <tr><td colspan="4" class="text-center py-4 text-muted">No diaries found for {{ year }}.</td></tr>
         {% endfor %}
       </tbody>
     </table>

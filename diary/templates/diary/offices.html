@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Directory - Offices{% endblock %}
+
+{% block content %}
+<h3 class="mb-3">Offices Directory</h3>
+<div class="card">
+  <div class="list-group list-group-flush">
+    {% for o in offices %}
+      <div class="list-group-item">{{ o.name }}</div>
+    {% empty %}
+      <div class="list-group-item text-muted">No offices recorded yet.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
