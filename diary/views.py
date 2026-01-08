@@ -91,7 +91,7 @@ def diary_list(request):
             )
 
     # show diaries in sequential order: year asc, sequence asc (1,2,3...)
-    qs = qs.order_by("year", "sequence")
+    qs = qs.order_by("-diary_date", "-sequence")
 
     paginator = Paginator(qs, 25)
     # Use 50 per page in production for better UX with larger data sets
@@ -581,36 +581,7 @@ def reports_pdf(request, year: int):
                 if i != len(self.entries) - 1:
                     c.drawString(x, y, self.sep)
                     x += c.stringWidth(self.sep, self.fontName, self.fontSize)
-    for d in qs:
-        # Build history for PDF: include complete movement history (no exclusions)
-        mvs = list(d.movements.all())
-        mvs = sorted(mvs, key=lambda mv: (mv.action_datetime, mv.id))
-        if not mvs:
-            history_flowable = Paragraph("-", normal)
-        else:
-            parts = []
-            parts = []
-            txts = []
-            for i, mv in enumerate(mvs):
-                dt = timezone.localtime(mv.action_datetime).date().strftime("%d-%m")
-                txt = f"{(mv.to_office or '-') } {dt}"
-                is_last = (i == len(mvs) - 1)
-                parts.append((txt, is_last))
-                txts.append(txt)
-            # Use a Paragraph with plain text for reliable text embedding in PDF
-            # while keeping the custom StrikeThroughHistory available for future use.
-            history_flowable = Paragraph(" / ".join(txts), normal)
-
-        data.append([
-            d.diary_no,
-            str(d.diary_date),
-            d.received_diary_no or "-",
-            d.received_from or "-",
-            d.file_letter or "-",
-            str(d.no_of_folders),
-            Paragraph((d.subject or "-").replace("\n", "<br/>"), normal),
-            history_flowable,
-        ])
+    # Do NOT append rows again here — it duplicates the PDF output.
 
     table = Table(
         data,

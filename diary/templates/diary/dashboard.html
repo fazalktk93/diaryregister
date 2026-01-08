@@ -77,7 +77,9 @@
             <div class="row g-3">
               <div class="col-md-4">
                 <label class="form-label">{{ create_form.diary_date.label }}</label>
-                {{ create_form.diary_date }}
+                {% now "Y-m-d" as today %}
+                <input type="date" class="form-control" value="{{ today }}" disabled>
+                <input type="hidden" name="diary_date" value="{{ today }}">
                 {% if create_form.diary_date.errors %}
                   <div class="text-danger small">{{ create_form.diary_date.errors|striptags }}</div>
                 {% endif %}
