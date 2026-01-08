@@ -148,15 +148,15 @@
                   <div class="text-danger small">{{ create_form.received_from.errors|striptags }}</div>
                 {% endif %}
               </div>
-      {% if can_view_sensitive %}
-      <div class="col-md-4">
-      <label class="form-label">{{ create_form.marked_to.label }}</label>
-      {{ create_form.marked_to }}
-      {% if create_form.marked_to.errors %}
-        <div class="text-danger small">{{ create_form.marked_to.errors|striptags }}</div>
-      {% endif %}
-      </div>
-      {% endif %}
+
+              <div class="col-md-4">
+                <label class="form-label">{{ create_form.marked_to.label }}</label>
+                {{ create_form.marked_to }}
+                {% if create_form.marked_to.errors %}
+                  <div class="text-danger small">{{ create_form.marked_to.errors|striptags }}</div>
+                {% endif %}
+              </div>
+
 
               <div class="col-md-4">
                 <label class="form-label">{{ create_form.file_letter.label }}</label>

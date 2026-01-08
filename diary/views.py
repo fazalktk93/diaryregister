@@ -40,8 +40,8 @@ def diary_list(request):
         if create_form.is_valid():
             data = dict(create_form.cleaned_data)
             # Non-admins should not set protected snapshot fields
-            if not is_admin:
-                data.pop("marked_to", None)
+            #if not is_admin:
+            #    data.pop("marked_to", None)
             diary = Diary.create_with_next_number(created_by=request.user, **data)
 
             DiaryMovement.objects.create(
@@ -123,8 +123,8 @@ def diary_create(request):
         form = DiaryCreateForm(request.POST)
         if form.is_valid():
             data = dict(form.cleaned_data)
-            if not is_admin:
-                data.pop("marked_to", None)
+            #if not is_admin:
+            #    data.pop("marked_to", None)
             diary = Diary.create_with_next_number(created_by=request.user, **data)
 
             DiaryMovement.objects.create(
@@ -772,8 +772,8 @@ def dashboard(request):
         if create_form.is_valid():
             data = dict(create_form.cleaned_data)
             # Non-admins should not set protected snapshot fields
-            if not is_admin:
-                data.pop("marked_to", None)
+            #if not is_admin:
+            #    data.pop("marked_to", None)
             diary = Diary.create_with_next_number(created_by=request.user, **data)
 
             DiaryMovement.objects.create(

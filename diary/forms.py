@@ -36,6 +36,7 @@ class DiaryCreateForm(forms.ModelForm):
             "file_letter": forms.Select(attrs={"class": BOOTSTRAP_SELECT_CLASS}),
             # Use a widget instance here (NumberInput). Previously this incorrectly used
             # forms.IntegerField in the Meta.widgets mapping which is a Form Field, not a Widget.
+            "marked_to": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS}),
             "no_of_folders": forms.NumberInput(attrs={"class": "form-control", "min": 0, "inputmode": "numeric"}),
             "subject": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 2}),
             "remarks": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 2}),
