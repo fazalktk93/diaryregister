@@ -2,89 +2,131 @@
 {% block title %}Diaries{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <div class="d-flex gap-2 align-items-center">
-  <h3 class="mb-0">Diaries</h3>
-  {% if year and year|length == 4 %}
-    <a class="btn btn-sm btn-outline-dark" href="{% url 'diary_year_report' year %}">
-      Year Report
-    </a>
-  {% endif %}
-</div>
-  <div>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newDiaryModal">+ New Diary</button>
+<div class="page-header">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h1 class="mb-0"><i class="bi bi-list-ul"></i> Diary List</h1>
+      <p class="text-light mb-0 mt-1 opacity-75">Manage and track all diaries</p>
+    </div>
+    <div>
+      <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#newDiaryModal" aria-label="Create a new diary">
+        <i class="bi bi-plus-circle"></i> New Diary
+      </button>
+      {% if year and year|length == 4 %}
+        <a class="btn btn-outline-light" href="{% url 'diary_year_report' year %}" aria-label="View year {{ year }} report">
+          <i class="bi bi-file-earmark-pdf"></i> Year Report
+        </a>
+      {% endif %}
+    </div>
   </div>
 </div>
 
-<form class="card card-body mb-3" method="get">
-  <div class="row g-2">
-    <div class="col-md-6">
-      <input class="form-control" name="q" value="{{ q }}" placeholder="Search: 2026-12, sequence, subject, office...">
-    </div>
-    <div class="col-md-2">
-      <input class="form-control" name="year" value="{{ year }}" placeholder="Year (e.g. 2026)">
-    </div>
-    <div class="col-md-2">
-      <select class="form-select" name="status">
-        <option value="">All Status</option>
-        {% for v,l in status_choices %}
-          <option value="{{ v }}" {% if status == v %}selected{% endif %}>{{ l }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-2 d-grid">
-      <button class="btn btn-outline-primary">Filter</button>
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <form method="get" aria-label="Filter diaries">
+          <fieldset>
+            <legend class="form-label fw-bold mb-3"><i class="bi bi-funnel"></i> Filter Diaries</legend>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="search-input" class="form-label">Search</label>
+                <input id="search-input" class="form-control" name="q" value="{{ q }}" placeholder="Search: 2026-12, subject, office..." aria-describedby="search-help">
+                <small id="search-help" class="form-text text-muted">Enter diary number, subject, or office name</small>
+              </div>
+              <div class="col-md-2">
+                <label for="year-input" class="form-label">Year</label>
+                <input id="year-input" class="form-control" name="year" value="{{ year }}" placeholder="e.g. 2026" aria-label="Filter by year">
+              </div>
+              <div class="col-md-2">
+                <label for="status-select" class="form-label">Status</label>
+                <select id="status-select" class="form-select" name="status" aria-label="Filter by status">
+                  <option value="">All Status</option>
+                  {% for v,l in status_choices %}
+                    <option value="{{ v }}" {% if status == v %}selected{% endif %}>{{ l }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100" aria-label="Apply filters">
+                  <i class="bi bi-search"></i> Filter
+                </button>
+              </div>
+            </div>
+          </fieldset>
+        </form>
+      </div>
     </div>
   </div>
-</form>
+</div>
 
 <div class="card">
   <div class="table-responsive">
-    <table class="table table-striped table-hover mb-0 align-middle">
-      <thead class="table-dark">
-        <tr>
-          <!-- SEQUENCE-WISE columns (as requested) -->
-          <th>Diary No</th>
-          <th>Received Diary No</th>
-          <th>Received From</th>
-          <th>File / Letter</th>
-          <th class="text-end">Folders</th>
-          <th>Subject</th>
-          <th>Remarks</th>
-          <th>Status</th>
-          <th>Marked To</th>
-          <th></th>
+    <table class="table table-hover mb-0 align-middle" role="grid" aria-label="Diary list">
+      <thead>
+        <tr role="row">
+          <th scope="col"><i class="bi bi-calendar"></i> Diary No</th>
+          <th scope="col">Received No</th>
+          <th scope="col">Received From</th>
+          <th scope="col">Type</th>
+          <th scope="col" class="text-center">Folders</th>
+          <th scope="col">Subject</th>
+          <th scope="col">Status</th>
+          <th scope="col">Marked To</th>
+          <th scope="col" class="text-center"><i class="bi bi-gear"></i> Action</th>
         </tr>
       </thead>
       <tbody>
         {% for d in page_obj.object_list %}
-          <tr>
+          <tr role="row" class="align-middle">
             <td>
-              <strong>{{ d.diary_no }}</strong>
-              <div class="small text-muted">{{ d.diary_date }}</div>
+              <strong class="d-block">{{ d.diary_no }}</strong>
+              <small class="text-muted">{{ d.diary_date|date:"M d, Y" }}</small>
             </td>
-
-            <td>{{ d.received_diary_no|default:"-" }}</td>
-            <td>{{ d.received_from|default:"-" }}</td>
-            <td>{{ d.file_letter|default:"-" }}</td>
-            <td class="text-end">
-              {% if d.file_letter == "File" %}
-                {{ d.no_of_folders }}
+            <td>{{ d.received_diary_no|default:"—" }}</td>
+            <td>{{ d.received_from|default:"—" }}</td>
+            <td>
+              {% if d.file_letter %}
+                <span class="badge {% if d.file_letter == 'File' %}bg-primary{% else %}bg-info{% endif %}">{{ d.file_letter }}</span>
               {% else %}
-                -
+                <span class="badge bg-secondary">—</span>
               {% endif %}
             </td>
-            <td class="text-truncate" style="max-width: 320px;">{{ d.subject|default:"-" }}</td>
-            <td class="text-truncate" style="max-width: 260px;">{{ d.remarks|default:"-" }}</td>
-            <td><span class="badge bg-secondary">{{ d.status }}</span></td>
-            <td>{{ d.marked_to|default:"-" }}</td>
-
-            <td class="text-end">
-              <a class="btn btn-sm btn-outline-primary" href="{% url 'diary_detail' d.pk %}">Open</a>
+            <td class="text-center">
+              {% if d.file_letter == "File" %}
+                <span class="badge bg-success">{{ d.no_of_folders }}</span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="text-truncate" style="max-width: 250px;" title="{{ d.subject|default:'' }}">
+                {{ d.subject|default:"—" }}
+              </div>
+            </td>
+            <td>
+              {% if d.status == "Pending" %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> {{ d.status }}</span>
+              {% elif d.status == "Completed" %}
+                <span class="badge bg-success"><i class="bi bi-check-circle"></i> {{ d.status }}</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ d.status }}</span>
+              {% endif %}
+            </td>
+            <td>{{ d.marked_to|default:"—" }}</td>
+            <td class="text-center">
+              <a class="btn btn-sm btn-outline-primary" href="{% url 'diary_detail' d.pk %}" aria-label="Open diary {{ d.diary_no }}">
+                <i class="bi bi-arrow-right"></i> View
+              </a>
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="10" class="text-center py-4 text-muted">No diaries found.</td></tr>
+          <tr role="row">
+            <td colspan="9" class="text-center py-5">
+              <i class="bi bi-inbox" style="font-size: 2.5rem; color: #ccc;"></i>
+              <p class="text-muted mt-2">No diaries found. Create one to get started!</p>
+            </td>
+          </tr>
         {% endfor %}
       </tbody>
     </table>
@@ -92,119 +134,139 @@
 
   {% if page_obj.paginator.num_pages > 1 %}
   <div class="card-footer d-flex justify-content-between align-items-center">
-    <div class="text-muted">
-      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} total)
+    <div class="text-muted small">
+      <strong>{{ page_obj.paginator.count }}</strong> total diaries — Page <strong>{{ page_obj.number }}</strong> of <strong>{{ page_obj.paginator.num_pages }}</strong>
     </div>
-    <div class="btn-group">
-      {% if page_obj.has_previous %}
-        <a class="btn btn-outline-secondary btn-sm" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.previous_page_number }}">Prev</a>
-      {% endif %}
-      {% if page_obj.has_next %}
-        <a class="btn btn-outline-secondary btn-sm" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.next_page_number }}">Next</a>
-      {% endif %}
-    </div>
+    <nav aria-label="Pagination navigation">
+      <ul class="pagination mb-0">
+        {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page=1" aria-label="First page">
+              <i class="bi bi-chevron-double-left"></i>
+            </a>
+          </li>
+          <li class="page-item">
+            <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.previous_page_number }}" aria-label="Previous page">
+              <i class="bi bi-chevron-left"></i>
+            </a>
+          </li>
+        {% endif %}
+        
+        {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.next_page_number }}" aria-label="Next page">
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          </li>
+          <li class="page-item">
+            <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.paginator.num_pages }}" aria-label="Last page">
+              <i class="bi bi-chevron-double-right"></i>
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
   </div>
   {% endif %}
 </div>
+
 
 <!-- ========== New Diary Modal ========== -->
 <div class="modal fade" id="newDiaryModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <!-- POST to same list view so errors can reopen modal -->
       <form method="post" novalidate>
         {% csrf_token %}
         <div class="modal-header">
-          <h5 class="modal-title">Create New Diary</h5>
+          <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Create New Diary</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
 
         <div class="modal-body">
           {% if create_form %}
-
             <div class="row g-3">
               <div class="col-md-4">
-                <label class="form-label">{{ create_form.diary_date.label }}</label>
+                <label for="{{ create_form.diary_date.id_for_label }}" class="form-label">{{ create_form.diary_date.label }}</label>
                 {% now "Y-m-d" as today %}
                 <input type="date" class="form-control" value="{{ today }}" disabled>
                 <input type="hidden" name="diary_date" value="{{ today }}">
                 {% if create_form.diary_date.errors %}
-                  <div class="text-danger small">{{ create_form.diary_date.errors|striptags }}</div>
+                  <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ create_form.diary_date.errors|striptags }}</div>
                 {% endif %}
               </div>
 
               <div class="col-md-4">
-                <label class="form-label">{{ create_form.received_diary_no.label }}</label>
+                <label for="{{ create_form.received_diary_no.id_for_label }}" class="form-label">{{ create_form.received_diary_no.label }}</label>
                 {{ create_form.received_diary_no }}
                 {% if create_form.received_diary_no.errors %}
-                  <div class="text-danger small">{{ create_form.received_diary_no.errors|striptags }}</div>
+                  <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ create_form.received_diary_no.errors|striptags }}</div>
                 {% endif %}
               </div>
 
               <div class="col-md-4">
-                <label class="form-label">{{ create_form.received_from.label }}</label>
+                <label for="{{ create_form.received_from.id_for_label }}" class="form-label">{{ create_form.received_from.label }}</label>
                 {{ create_form.received_from }}
                 {% if create_form.received_from.errors %}
-                  <div class="text-danger small">{{ create_form.received_from.errors|striptags }}</div>
+                  <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ create_form.received_from.errors|striptags }}</div>
                 {% endif %}
               </div>
 
               <div class="col-md-4">
-                <label class="form-label">{{ create_form.marked_to.label }}</label>
+                <label for="{{ create_form.marked_to.id_for_label }}" class="form-label">{{ create_form.marked_to.label }}</label>
                 {{ create_form.marked_to }}
                 {% if create_form.marked_to.errors %}
-                  <div class="text-danger small">{{ create_form.marked_to.errors|striptags }}</div>
+                  <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ create_form.marked_to.errors|striptags }}</div>
                 {% endif %}
               </div>
 
-
               <div class="col-md-4">
-                <label class="form-label">{{ create_form.file_letter.label }}</label>
+                <label for="{{ create_form.file_letter.id_for_label }}" class="form-label">{{ create_form.file_letter.label }}</label>
                 {{ create_form.file_letter }}
                 {% if create_form.file_letter.errors %}
-                  <div class="text-danger small">{{ create_form.file_letter.errors|striptags }}</div>
+                  <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ create_form.file_letter.errors|striptags }}</div>
                 {% endif %}
               </div>
 
               <div class="col-md-4">
-                <label class="form-label">{{ create_form.no_of_folders.label }}</label>
+                <label for="{{ create_form.no_of_folders.id_for_label }}" class="form-label">{{ create_form.no_of_folders.label }}</label>
                 {{ create_form.no_of_folders }}
                 {% if create_form.no_of_folders.errors %}
-                  <div class="text-danger small">{{ create_form.no_of_folders.errors|striptags }}</div>
+                  <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ create_form.no_of_folders.errors|striptags }}</div>
                 {% endif %}
               </div>
 
               <div class="col-md-12">
-                <label class="form-label">{{ create_form.subject.label }}</label>
+                <label for="{{ create_form.subject.id_for_label }}" class="form-label">{{ create_form.subject.label }}</label>
                 {{ create_form.subject }}
                 {% if create_form.subject.errors %}
-                  <div class="text-danger small">{{ create_form.subject.errors|striptags }}</div>
+                  <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ create_form.subject.errors|striptags }}</div>
                 {% endif %}
               </div>
 
               <div class="col-md-12">
-                <label class="form-label">{{ create_form.remarks.label }}</label>
+                <label for="{{ create_form.remarks.id_for_label }}" class="form-label">{{ create_form.remarks.label }}</label>
                 {{ create_form.remarks }}
                 {% if create_form.remarks.errors %}
-                  <div class="text-danger small">{{ create_form.remarks.errors|striptags }}</div>
+                  <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ create_form.remarks.errors|striptags }}</div>
                 {% endif %}
               </div>
             </div>
 
             {% if create_form.non_field_errors %}
-              <div class="alert alert-danger mt-3 mb-0">{{ create_form.non_field_errors }}</div>
+              <div class="alert alert-danger mt-3 mb-0">
+                <i class="bi bi-exclamation-triangle"></i> {{ create_form.non_field_errors }}
+              </div>
             {% endif %}
-
           {% else %}
             <div class="alert alert-info mb-0">
-              Create form not provided.
+              <i class="bi bi-info-circle"></i> Create form not provided.
             </div>
           {% endif %}
         </div>
 
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button class="btn btn-primary">Create</button>
+          <button class="btn btn-primary"><i class="bi bi-plus-circle"></i> Create Diary</button>
         </div>
       </form>
     </div>
@@ -233,11 +295,12 @@
       syncFoldersState();
     }
 
-    // If server returned errors, reopen modal automatically
-    {% if create_form and create_form.errors %}
+    // If form has errors, reopen modal automatically
+    const formErrors = document.querySelectorAll(".text-danger");
+    if (formErrors.length > 0) {
       const el = document.getElementById("newDiaryModal");
       if (el) new bootstrap.Modal(el).show();
-    {% endif %}
+    }
   });
 </script>
 

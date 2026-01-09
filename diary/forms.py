@@ -17,6 +17,17 @@ class DiaryCreateForm(forms.ModelForm):
         ("Letter", "Letter"),
     )
 
+    # Override diary_date to use timezone.localdate as default
+    diary_date = forms.DateField(initial=timezone.localdate, required=True)
+
+    # Dropdown (File / Letter)
+    file_letter = forms.ChoiceField(
+        choices=FILE_LETTER_CHOICES,
+        widget=forms.Select(attrs={"class": BOOTSTRAP_SELECT_CLASS}),
+        required=True,
+        initial="Letter",
+    )
+
     class Meta:
         model = Diary
         fields = [
@@ -31,26 +42,14 @@ class DiaryCreateForm(forms.ModelForm):
         ]
         widgets = {
             "diary_date": forms.DateInput(attrs={"type": "date", "class": BOOTSTRAP_INPUT_CLASS}),
-            "received_diary_no": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS}),
-            "received_from": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS}),
+            "received_diary_no": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS, "placeholder": "e.g. REF-2026-001"}),
+            "received_from": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS, "placeholder": "Office or sender name"}),
             "file_letter": forms.Select(attrs={"class": BOOTSTRAP_SELECT_CLASS}),
-            # Use a widget instance here (NumberInput). Previously this incorrectly used
-            # forms.IntegerField in the Meta.widgets mapping which is a Form Field, not a Widget.
-            "marked_to": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS}),
+            "marked_to": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS, "placeholder": "Destination office"}),
             "no_of_folders": forms.NumberInput(attrs={"class": "form-control", "min": 0, "inputmode": "numeric"}),
-            "subject": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 2}),
-            "remarks": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 2}),
+            "subject": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 2, "placeholder": "Diary subject or description"}),
+            "remarks": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 2, "placeholder": "Additional remarks (optional)"}),
         }
-
-    diary_date = forms.DateField(initial=timezone.localdate, required=True)
-
-    # Dropdown (File / Letter)
-    file_letter = forms.ChoiceField(
-        choices=FILE_LETTER_CHOICES,
-        widget=forms.Select(attrs={"class": BOOTSTRAP_SELECT_CLASS}),
-        required=True,
-        initial="Letter",
-    )
 
     # Make the field optional at the form level so disabled inputs (not submitted)
     # don't trigger a required-field error; clean() enforces when File is selected.

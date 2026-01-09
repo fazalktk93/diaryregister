@@ -19,6 +19,8 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Flowable
 from reportlab.pdfgen.canvas import Canvas
 
+from django.conf import settings
+
 from .forms import DiaryCreateForm, MovementCreateForm
 from .models import Diary, DiaryMovement, Office
 
@@ -26,8 +28,41 @@ from .models import Diary, DiaryMovement, Office
 DIARYNO_RE = re.compile(r"^\s*(\d{4})\s*-\s*(\d+)\s*$")  # 2026-12
 
 
+def create_diary_with_movement(diary_data: dict, created_by, initial_remarks: str = "Initial diary created") -> Diary:
+    """
+    Helper function to create a diary and its initial movement record.
+    Prevents code duplication across views.
+    
+    Args:
+        diary_data: Cleaned form data dictionary
+        created_by: User instance who is creating the diary
+        initial_remarks: Optional remarks for the initial movement
+    
+    Returns:
+        Created Diary instance with status CREATED and initial movement
+    """
+    diary = Diary.create_with_next_number(created_by=created_by, **diary_data)
+
+    DiaryMovement.objects.create(
+        diary=diary,
+        from_office=diary.received_from or settings.DEFAULT_OFFICE_NAME,
+        to_office=diary.marked_to or (diary.received_from or settings.DEFAULT_OFFICE_NAME),
+        action_type=DiaryMovement.ActionType.CREATED,
+        action_datetime=timezone.now(),
+        remarks=initial_remarks,
+        created_by=created_by,
+    )
+
+    diary.status = Diary.Status.CREATED
+    diary.marked_date = timezone.localdate()
+    diary.save(update_fields=["status", "marked_date"])
+
+    return diary
+
+
 @login_required
 def diary_list(request):
+    """Display list of diaries with filtering and search. Allows creating new diaries via modal."""
     q = (request.GET.get("q") or "").strip()
     year = (request.GET.get("year") or "").strip()
     status = (request.GET.get("status") or "").strip()
@@ -38,26 +73,7 @@ def diary_list(request):
     if request.method == "POST":
         create_form = DiaryCreateForm(request.POST)
         if create_form.is_valid():
-            data = dict(create_form.cleaned_data)
-            # Non-admins should not set protected snapshot fields
-            #if not is_admin:
-            #    data.pop("marked_to", None)
-            diary = Diary.create_with_next_number(created_by=request.user, **data)
-
-            DiaryMovement.objects.create(
-                diary=diary,
-                from_office=diary.received_from or "Registry",
-                to_office=diary.marked_to or (diary.received_from or "Registry"),
-                action_type=DiaryMovement.ActionType.CREATED,
-                action_datetime=timezone.now(),
-                remarks="Initial diary created",
-                created_by=request.user,
-            )
-
-            diary.status = Diary.Status.CREATED
-            diary.marked_date = timezone.localdate()
-            diary.save(update_fields=["status", "marked_date"])
-
+            diary = create_diary_with_movement(dict(create_form.cleaned_data), request.user)
             messages.success(request, f"Diary created: {diary.diary_no}")
             return redirect("diary_detail", pk=diary.pk)
 
@@ -93,9 +109,7 @@ def diary_list(request):
     # show diaries in sequential order: year asc, sequence asc (1,2,3...)
     qs = qs.order_by("-diary_date", "-sequence")
 
-    paginator = Paginator(qs, 25)
-    # Use 50 per page in production for better UX with larger data sets
-    paginator = Paginator(qs, 50)
+    paginator = Paginator(qs, settings.DEFAULT_PAGE_SIZE)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
@@ -115,32 +129,13 @@ def diary_list(request):
 
 
 @login_required
-@login_required
 def diary_create(request):
-    # (Optional) keep this view working if you still want /new/
+    """Create a new diary. Can be accessed directly or from modal on diary_list."""
     is_admin = request.user.is_superuser or request.user.groups.filter(name="admin").exists()
     if request.method == "POST":
         form = DiaryCreateForm(request.POST)
         if form.is_valid():
-            data = dict(form.cleaned_data)
-            #if not is_admin:
-            #    data.pop("marked_to", None)
-            diary = Diary.create_with_next_number(created_by=request.user, **data)
-
-            DiaryMovement.objects.create(
-                diary=diary,
-                from_office=diary.received_from or "Registry",
-                to_office=diary.marked_to or (diary.received_from or "Registry"),
-                action_type=DiaryMovement.ActionType.CREATED,
-                action_datetime=timezone.now(),
-                remarks="Initial diary created",
-                created_by=request.user,
-            )
-
-            diary.status = Diary.Status.CREATED
-            diary.marked_date = timezone.localdate()
-            diary.save(update_fields=["status", "marked_date"])
-
+            diary = create_diary_with_movement(dict(form.cleaned_data), request.user)
             messages.success(request, f"Diary created: {diary.diary_no}")
             return redirect("diary_detail", pk=diary.pk)
 
@@ -153,6 +148,7 @@ def diary_create(request):
 
 @login_required
 def diary_detail(request, pk: int):
+    """Display detailed view of a single diary with its movement history."""
     diary = get_object_or_404(Diary, pk=pk)
     movements = diary.movements.all().order_by("action_datetime", "id")
     # Only admin group (or superuser) can view creator/updater sensitive fields
@@ -178,10 +174,11 @@ def reports_home(request):
 
 @login_required
 def movement_add(request, pk: int):
+    """Add a movement record to a diary, updating its status and current location."""
     diary = get_object_or_404(Diary, pk=pk)
 
     last = diary.movements.order_by("-action_datetime", "-id").first()
-    default_from = (last.to_office if last else diary.received_from) or "Registry"
+    default_from = (last.to_office if last else diary.received_from) or settings.DEFAULT_OFFICE_NAME
 
     if request.method == "POST":
         form = MovementCreateForm(request.POST)
@@ -209,7 +206,9 @@ def movement_add(request, pk: int):
             }
         )
 
-    return render(request, "diary/movement_add.html", {"form": form, "diary": diary})
+    # Pass offices for autocomplete datalist
+    offices = Office.objects.values_list("name", flat=True).order_by("name")
+    return render(request, "diary/movement_add.html", {"form": form, "diary": diary, "offices": offices})
 
 
 @login_required
@@ -225,15 +224,15 @@ def diary_edit(request, pk: int):
     if request.method == "POST":
         form = DiaryCreateForm(request.POST)
         if form.is_valid():
-            # Update diary fields
+            # Update diary fields from cleaned form data
             diary.diary_date = form.cleaned_data["diary_date"]
-            diary.received_diary_no = form.cleaned_data.get("received_diary_no")
-            diary.received_from = form.cleaned_data.get("received_from")
-            diary.file_letter = form.cleaned_data.get("file_letter")
-            diary.no_of_folders = form.cleaned_data.get("no_of_folders")
-            diary.subject = form.cleaned_data.get("subject")
-            diary.remarks = form.cleaned_data.get("remarks")
-            diary.marked_to = form.cleaned_data.get("marked_to")
+            diary.received_diary_no = form.cleaned_data.get("received_diary_no", "")
+            diary.received_from = form.cleaned_data.get("received_from", "")
+            diary.file_letter = form.cleaned_data.get("file_letter", "")
+            diary.no_of_folders = form.cleaned_data.get("no_of_folders", 0)
+            diary.subject = form.cleaned_data.get("subject", "")
+            diary.remarks = form.cleaned_data.get("remarks", "")
+            diary.marked_to = form.cleaned_data.get("marked_to", "")
             diary.save()
             
             messages.success(request, f"Diary {diary.diary_no} updated successfully.")
@@ -277,8 +276,8 @@ def diary_delete(request, pk: int):
 @login_required
 def reports_table(request):
     """
-    Reports page with per-column filters.
-    Uses pagination and prefetch to stay fast.
+    Reports page with per-column filters for detailed diary analysis.
+    Uses pagination and prefetch to stay performant.
     """
     year = (request.GET.get("year") or "").strip()
 
@@ -348,7 +347,7 @@ def reports_table(request):
     # keep reports newest-first in the web UI (so report page shows latest on top)
     qs = qs.order_by("-year", "-sequence")
 
-    paginator = Paginator(qs, 50)
+    paginator = Paginator(qs, settings.DEFAULT_PAGE_SIZE)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
@@ -377,8 +376,9 @@ def reports_table(request):
 @login_required
 def reports_pdf(request, year: int):
     """
-    Generate Year PDF in a new tab.
-    Includes movement history with strike-through for older destinations.
+    Generate Year PDF report in a new tab.
+    Includes movement history with deduplication for cleaner register-style output.
+    Adds page numbers and optional watermark branding.
     """
     qs = (
         Diary.objects.filter(year=year)
@@ -770,26 +770,7 @@ def dashboard(request):
     if request.method == "POST":
         create_form = DiaryCreateForm(request.POST)
         if create_form.is_valid():
-            data = dict(create_form.cleaned_data)
-            # Non-admins should not set protected snapshot fields
-            #if not is_admin:
-            #    data.pop("marked_to", None)
-            diary = Diary.create_with_next_number(created_by=request.user, **data)
-
-            DiaryMovement.objects.create(
-                diary=diary,
-                from_office=diary.received_from or "Registry",
-                to_office=diary.marked_to or (diary.received_from or "Registry"),
-                action_type=DiaryMovement.ActionType.CREATED,
-                action_datetime=timezone.now(),
-                remarks="Initial diary created",
-                created_by=request.user,
-            )
-
-            diary.status = Diary.Status.CREATED
-            diary.marked_date = timezone.localdate()
-            diary.save(update_fields=["status", "marked_date"])
-
+            diary = create_diary_with_movement(dict(create_form.cleaned_data), request.user)
             messages.success(request, f"Diary created: {diary.diary_no}")
             return redirect("diary_detail", pk=diary.pk)
 
@@ -834,5 +815,6 @@ def dashboard(request):
 
 @login_required
 def offices_directory(request):
+    """Display directory of all offices for reference."""
     qs = Office.objects.order_by("name")
     return render(request, "diary/offices.html", {"offices": qs})

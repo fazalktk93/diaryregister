@@ -2,14 +2,51 @@
 {% block title %}Directory - Offices{% endblock %}
 
 {% block content %}
-<h3 class="mb-3">Offices Directory</h3>
-<div class="card">
-  <div class="list-group list-group-flush">
-    {% for o in offices %}
-      <div class="list-group-item">{{ o.name }}</div>
-    {% empty %}
-      <div class="list-group-item text-muted">No offices recorded yet.</div>
-    {% endfor %}
+<div class="page-header mb-4">
+  <h1 class="mb-1"><i class="bi bi-building"></i> Office Directory</h1>
+  <p class="text-light mb-0 opacity-75">Complete list of registered offices and departments</p>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="fs-6 mb-0"><i class="bi bi-list-ul"></i> {{ offices.count }} Registered Offices</h2>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for o in offices %}
+          <div class="list-group-item d-flex align-items-center" style="padding: 1rem 1.5rem;">
+            <div class="flex-grow-1">
+              <h6 class="mb-0">
+                <i class="bi bi-building" style="color: #667eea;"></i> {{ o.name }}
+              </h6>
+            </div>
+            <small class="badge bg-light text-dark">Office</small>
+          </div>
+        {% empty %}
+          <div class="list-group-item text-center py-5">
+            <i class="bi bi-inbox" style="font-size: 2.5rem; color: #ccc;"></i>
+            <p class="text-muted mt-2 mb-0">No offices recorded yet.</p>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header bg-light">
+        <h2 class="fs-6 mb-0"><i class="bi bi-info-circle"></i> About</h2>
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-2">
+          This directory contains all registered offices and departments in the system. Each office can be used for diary movements and tracking.
+        </p>
+        <div class="alert alert-info py-2 px-3 small mb-0">
+          <i class="bi bi-lightbulb"></i> Tip: Use office names when tracking diary movements.
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
