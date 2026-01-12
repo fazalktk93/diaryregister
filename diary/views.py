@@ -443,7 +443,7 @@ def reports_pdf(request, year: int):
 
         data.append([
             str(d.sequence),
-            str(d.diary_date),
+            d.diary_date.strftime("%d-%m-%Y") if d.diary_date else "-",
             d.received_diary_no or "-",
             d.received_from or "-",
             d.file_letter or "-",
@@ -664,7 +664,7 @@ def _build_pdf_data_for_year(year):
 
         data.append([
             str(d.sequence),
-            str(d.diary_date),
+            d.diary_date.strftime("%d-%m-%Y") if d.diary_date else "-",
             d.received_diary_no or "-",
             d.received_from or "-",
             d.file_letter or "-",
