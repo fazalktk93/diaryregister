@@ -79,6 +79,22 @@ LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "diary_list"
 LOGOUT_REDIRECT_URL = "login"
 
+# Django app-level constants
+DEFAULT_OFFICE_NAME = "Registry"
+DEFAULT_PAGE_SIZE = 50
+
+# Email Configuration for Password Reset
+EMAIL_BACKEND = env("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = env("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(env("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = env("EMAIL_USE_TLS", "True") == "True"
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", "your-email@gmail.com")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", "your-app-password")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "noreply@diaryregister.com")
+
+# Password reset link validity (in seconds)
+PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
+
 # Basic production hardening (safe defaults; tune as needed)
 if not DEBUG:
     SESSION_COOKIE_SECURE = True

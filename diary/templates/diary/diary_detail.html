@@ -2,83 +2,165 @@
 {% block title %}Diary {{ diary.diary_no }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-start mb-3">
-  <div>
-    <h3 class="mb-1">Diary <span class="text-muted">{{ diary.diary_no }}</span></h3>
-    {% if can_view_sensitive %}
-      <div class="text-muted">Created: {{ diary.created_at }} by {{ diary.created_by }}</div>
-    {% else %}
-      <div class="text-muted">Created: {{ diary.created_at }}</div>
-    {% endif %}
-  </div>
-  <div>
-    <a class="btn btn-primary" href="{% url 'movement_add' diary.pk %}">+ Add Movement</a>
-    {% if can_view_sensitive %}
-      <a class="btn btn-warning" href="{% url 'diary_edit' diary.pk %}">Edit</a>
-      <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">Delete</button>
-    {% endif %}
+<div class="page-header mb-4">
+  <div class="d-flex justify-content-between align-items-start">
+    <div>
+      <h1 class="mb-1"><i class="bi bi-file-earmark"></i> {{ diary.diary_no }}</h1>
+      <p class="text-light mb-0 opacity-75 small">
+        {% if can_view_sensitive %}
+          Created on {{ diary.created_at|date:"M d, Y" }} by {{ diary.created_by }}
+        {% else %}
+          Created on {{ diary.created_at|date:"M d, Y" }}
+        {% endif %}
+      </p>
+    </div>
+    <div class="btn-group btn-group-sm" role="group" aria-label="Diary actions">
+      <a class="btn btn-light" href="{% url 'movement_add' diary.pk %}" aria-label="Add a new movement to this diary">
+        <i class="bi bi-plus-circle"></i> Movement
+      </a>
+      {% if can_view_sensitive %}
+        <a class="btn btn-light" href="{% url 'diary_edit' diary.pk %}" aria-label="Edit diary {{ diary.diary_no }}">
+          <i class="bi bi-pencil"></i> Edit
+        </a>
+        <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#deleteModal" aria-label="Delete diary {{ diary.diary_no }}">
+          <i class="bi bi-trash"></i> Delete
+        </button>
+      {% endif %}
+    </div>
   </div>
 </div>
 
-<div class="row g-3 mb-3">
+<div class="row g-4 mb-4">
   <div class="col-md-6">
     <div class="card h-100">
-      <div class="card-header">Details</div>
+      <div class="card-header">
+        <h2 class="fs-6 mb-0"><i class="bi bi-info-circle"></i> Diary Information</h2>
+      </div>
       <div class="card-body">
-        <div><strong>Date:</strong> {{ diary.diary_date }}</div>
-        <div><strong>Received From:</strong> {{ diary.received_from|default:"-" }}</div>
-        <div><strong>Received Diary No:</strong> {{ diary.received_diary_no|default:"-" }}</div>
-        <div><strong>File/Letter:</strong> {{ diary.file_letter|default:"-" }}</div>
-        <div><strong>Folders:</strong> {{ diary.no_of_folders }}</div>
-        <hr>
-        <div><strong>Subject:</strong><br>{{ diary.subject|linebreaksbr }}</div>
-        <div class="mt-2"><strong>Remarks:</strong><br>{{ diary.remarks|linebreaksbr }}</div>
+        <div class="row row-cols-2 g-3">
+          <div>
+            <small class="text-muted d-block mb-1">Date</small>
+            <strong>{{ diary.diary_date|date:"M d, Y" }}</strong>
+          </div>
+          <div>
+            <small class="text-muted d-block mb-1">File Type</small>
+            <span class="badge {% if diary.file_letter == 'File' %}bg-primary{% else %}bg-info{% endif %}">{{ diary.file_letter|default:"—" }}</span>
+          </div>
+          <div>
+            <small class="text-muted d-block mb-1">Folders</small>
+            <strong>{{ diary.no_of_folders|default:"—" }}</strong>
+          </div>
+          <div>
+            <small class="text-muted d-block mb-1">Received From</small>
+            <strong>{{ diary.received_from|default:"—" }}</strong>
+          </div>
+        </div>
+        <hr class="my-3">
+        <div class="mb-3">
+          <small class="text-muted d-block mb-2">Received Diary No</small>
+          <code>{{ diary.received_diary_no|default:"—" }}</code>
+        </div>
+        <div>
+          <small class="text-muted d-block mb-2">Subject</small>
+          <p class="mb-0">{{ diary.subject|linebreaksbr }}</p>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="col-md-6">
     <div class="card h-100">
-      <div class="card-header">Current Status</div>
+      <div class="card-header">
+        <h2 class="fs-6 mb-0"><i class="bi bi-tag"></i> Current Status</h2>
+      </div>
       <div class="card-body">
-        <div><strong>Status:</strong> <span class="badge bg-secondary">{{ diary.status }}</span></div>
-        <div class="mt-2"><strong>Marked To:</strong> {{ diary.marked_to|default:"-" }}</div>
-        <div><strong>Marked Date:</strong> {{ diary.marked_date|default:"-" }}</div>
+        <div class="mb-3">
+          <small class="text-muted d-block mb-2">Status</small>
+          {% if diary.status == "Pending" %}
+            <span class="badge bg-warning text-dark" style="font-size: 0.9rem; padding: 0.6rem 0.8rem;">
+              <i class="bi bi-hourglass-split"></i> {{ diary.status }}
+            </span>
+          {% elif diary.status == "Completed" %}
+            <span class="badge bg-success" style="font-size: 0.9rem; padding: 0.6rem 0.8rem;">
+              <i class="bi bi-check-circle"></i> {{ diary.status }}
+            </span>
+          {% else %}
+            <span class="badge bg-secondary" style="font-size: 0.9rem; padding: 0.6rem 0.8rem;">{{ diary.status }}</span>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          <small class="text-muted d-block mb-2">Marked To</small>
+          <strong>{{ diary.marked_to|default:"—" }}</strong>
+        </div>
+
+        <div>
+          <small class="text-muted d-block mb-2">Marked Date</small>
+          <strong>{{ diary.marked_date|default:"—" }}</strong>
+        </div>
+
+        {% if diary.remarks %}
+          <hr class="my-3">
+          <div>
+            <small class="text-muted d-block mb-2">Remarks</small>
+            <p class="mb-0">{{ diary.remarks|linebreaksbr }}</p>
+          </div>
+        {% endif %}
       </div>
     </div>
   </div>
 </div>
 
 <div class="card">
-  <div class="card-header">Movement History</div>
+  <div class="card-header">
+    <h2 class="fs-6 mb-0"><i class="bi bi-shuffle"></i> Movement History</h2>
+  </div>
   <div class="table-responsive">
-    <table class="table table-striped mb-0 align-middle">
-      <thead class="table-light">
-        <tr>
-          <th>Date/Time</th>
-          <th>Action</th>
-          <th>From</th>
-          <th>To</th>
-          <th>Remarks</th>
+    <table class="table table-hover mb-0 align-middle" role="grid" aria-label="Diary movement history">
+      <thead>
+        <tr role="row">
+          <th scope="col"><i class="bi bi-calendar"></i> Date/Time</th>
+          <th scope="col">Action</th>
+          <th scope="col">From</th>
+          <th scope="col">To</th>
+          <th scope="col">Remarks</th>
           {% if can_view_sensitive %}
-            <th>By</th>
+            <th scope="col">By</th>
           {% endif %}
         </tr>
       </thead>
       <tbody>
         {% for m in movements %}
-          <tr>
-            <td>{{ m.action_datetime }}</td>
-            <td><span class="badge bg-info text-dark">{{ m.action_type }}</span></td>
-            <td>{{ m.from_office|default:"-" }}</td>
-            <td>{{ m.to_office|default:"-" }}</td>
-            <td class="text-truncate" style="max-width: 420px;">{{ m.remarks|default:"-" }}</td>
+          <tr role="row">
+            <td>
+              <small class="text-muted d-block">{{ m.action_datetime|date:"M d, Y" }}</small>
+              <code>{{ m.action_datetime|time:"H:i" }}</code>
+            </td>
+            <td>
+              <span class="badge bg-primary" style="font-size: 0.85rem;">{{ m.action_type }}</span>
+            </td>
+            <td>
+              <small>{{ m.from_office|default:"—" }}</small>
+            </td>
+            <td>
+              <small>{{ m.to_office|default:"—" }}</small>
+            </td>
+            <td class="text-truncate" style="max-width: 280px;" title="{{ m.remarks|default:'' }}">
+              {{ m.remarks|default:"—" }}
+            </td>
             {% if can_view_sensitive %}
-              <td>{{ m.created_by }}</td>
+              <td>
+                <small class="badge bg-light text-dark">{{ m.created_by }}</small>
+              </td>
             {% endif %}
           </tr>
         {% empty %}
-          <tr><td colspan="6" class="text-center py-4 text-muted">No movements yet.</td></tr>
+          <tr role="row">
+            <td colspan="{% if can_view_sensitive %}6{% else %}5{% endif %}" class="text-center py-5">
+              <i class="bi bi-inbox" style="font-size: 2rem; color: #ccc;"></i>
+              <p class="text-muted mt-2">No movements yet. Add one to track this diary.</p>
+            </td>
+          </tr>
         {% endfor %}
       </tbody>
     </table>
@@ -89,19 +171,22 @@
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-danger text-white">
-        <h5 class="modal-title">Delete Diary</h5>
+      <div class="modal-header bg-danger">
+        <h5 class="modal-title text-white"><i class="bi bi-exclamation-triangle"></i> Delete Diary</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p>Are you sure you want to delete diary <strong>{{ diary.diary_no }}</strong>?</p>
-        <p class="text-danger mb-0">This action cannot be undone.</p>
+        <p class="mb-1"><strong>Are you sure?</strong></p>
+        <p>You're about to delete diary <strong>{{ diary.diary_no }}</strong>.</p>
+        <p class="text-danger mb-0 small"><i class="bi bi-exclamation-circle"></i> This action cannot be undone.</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
         <form method="post" action="{% url 'diary_delete' diary.pk %}" style="display:inline;">
           {% csrf_token %}
-          <button type="submit" class="btn btn-danger">Delete</button>
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash"></i> Delete Diary
+          </button>
         </form>
       </div>
     </div>
