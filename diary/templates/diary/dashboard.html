@@ -118,8 +118,6 @@
   </div>
 </div>
 
-{% endblock %}
-
 <!-- ========== New Diary Modal ========== -->
 <div class="modal fade" id="newDiaryModal" tabindex="-1" aria-labelledby="newDiaryModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -259,7 +257,11 @@
     const counts = Array.from(document.querySelectorAll(".month-card .count"))
       .map(el => parseInt(el.textContent) || 0)
       .reduce((a, b) => a + b, 0);
-    const totalEl = document.getElementById("total-diaries");
-    if (totalEl) totalEl.textContent = counts;
+    const totalDiariesEl = document.getElementById("total-diaries");
+    if (totalDiariesEl) totalDiariesEl.textContent = counts;
+    const totalCountEl = document.getElementById("total-count");
+    if (totalCountEl) totalCountEl.textContent = counts;
   });
 </script>
+
+{% endblock %}
