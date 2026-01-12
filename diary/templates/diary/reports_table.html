@@ -16,7 +16,7 @@
 
 <div class="card mb-4">
   <div class="card-body">
-    <form method="get" novalidate>
+    <form method="get" novalidate id="reportsFilters">
       <fieldset>
         <legend class="form-label fw-bold mb-3"><i class="bi bi-funnel"></i> Filter & Export</legend>
         <div class="row g-3 align-items-end">
@@ -59,26 +59,26 @@
         </tr>
         <tr role="row" class="table-light">
           <th scope="col">
-            <input class="form-control form-control-sm" name="diary_no" value="{{ filters.diary_no }}" placeholder="2026-12" aria-label="Filter by diary number">
+            <input class="form-control form-control-sm" form="reportsFilters" name="diary_no" value="{{ filters.diary_no }}" placeholder="2026-12" aria-label="Filter by diary number">
           </th>
           <th scope="col"></th>
           <th scope="col">
-            <input class="form-control form-control-sm" name="received_diary_no" value="{{ filters.received_diary_no }}" placeholder="No" aria-label="Filter by received number">
+            <input class="form-control form-control-sm" form="reportsFilters" name="received_diary_no" value="{{ filters.received_diary_no }}" placeholder="No" aria-label="Filter by received number">
           </th>
           <th scope="col">
-            <input class="form-control form-control-sm" name="received_from" value="{{ filters.received_from }}" placeholder="Office" aria-label="Filter by received from">
+            <input class="form-control form-control-sm" form="reportsFilters" name="received_from" value="{{ filters.received_from }}" placeholder="Office" aria-label="Filter by received from">
           </th>
           <th scope="col">
-            <input class="form-control form-control-sm" name="file_letter" value="{{ filters.file_letter }}" placeholder="File" aria-label="Filter by type">
+            <input class="form-control form-control-sm" form="reportsFilters" name="file_letter" value="{{ filters.file_letter }}" placeholder="File" aria-label="Filter by type">
           </th>
           <th scope="col">
-            <input class="form-control form-control-sm" name="no_of_folders" value="{{ filters.no_of_folders }}" placeholder="0" aria-label="Filter by folders">
+            <input class="form-control form-control-sm" form="reportsFilters" name="no_of_folders" value="{{ filters.no_of_folders }}" placeholder="0" aria-label="Filter by folders">
           </th>
           <th scope="col">
-            <input class="form-control form-control-sm" name="subject" value="{{ filters.subject }}" placeholder="Subject" aria-label="Filter by subject">
+            <input class="form-control form-control-sm" form="reportsFilters" name="subject" value="{{ filters.subject }}" placeholder="Subject" aria-label="Filter by subject">
           </th>
           <th scope="col">
-            <select class="form-select form-select-sm" name="status" aria-label="Filter by status">
+            <select class="form-select form-select-sm" form="reportsFilters" name="status" aria-label="Filter by status">
               <option value="">All</option>
               {% for v,l in status_choices %}
                 <option value="{{ v }}" {% if filters.status == v %}selected{% endif %}>{{ l }}</option>
@@ -87,7 +87,7 @@
           </th>
           <th scope="col"></th>
           <th scope="col">
-            <input class="form-control form-control-sm" name="marked_to" value="{{ filters.marked_to }}" placeholder="Current" aria-label="Filter by marked to">
+            <input class="form-control form-control-sm" form="reportsFilters" name="marked_to" value="{{ filters.marked_to }}" placeholder="Current" aria-label="Filter by marked to">
           </th>
         </tr>
       </thead>
@@ -157,14 +157,14 @@
         <ul class="pagination mb-0 gap-1">
           {% if page_obj.has_previous %}
             <li class="page-item">
-              <button class="page-link" name="page" value="{{ page_obj.previous_page_number }}" aria-label="Previous page">
+              <button class="page-link" form="reportsFilters" name="page" value="{{ page_obj.previous_page_number }}" aria-label="Previous page">
                 <i class="bi bi-chevron-left"></i>
               </button>
             </li>
           {% endif %}
           {% if page_obj.has_next %}
             <li class="page-item">
-              <button class="page-link" name="page" value="{{ page_obj.next_page_number }}" aria-label="Next page">
+              <button class="page-link" form="reportsFilters" name="page" value="{{ page_obj.next_page_number }}" aria-label="Next page">
                 <i class="bi bi-chevron-right"></i>
               </button>
             </li>
