@@ -105,6 +105,12 @@
             <small class="text-muted d-block mb-2">Remarks</small>
             <p class="mb-0">{{ diary.remarks|linebreaksbr }}</p>
           </div>
+        {% elif last_movement_remarks %}
+          <hr class="my-3">
+          <div>
+            <small class="text-muted d-block mb-2">Remarks</small>
+            <p class="mb-0">{{ last_movement_remarks|linebreaksbr }}</p>
+          </div>
         {% endif %}
       </div>
     </div>

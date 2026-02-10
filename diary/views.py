@@ -160,9 +160,21 @@ def diary_detail(request, pk: int):
     """Display detailed view of a single diary with its movement history."""
     diary = get_object_or_404(Diary, pk=pk)
     movements = diary.movements.all().order_by("action_datetime", "id")
+    # Provide last movement remarks as a fallback when diary.remarks is empty
+    last_movement = diary.movements.order_by("-action_datetime", "-id").first()
+    last_movement_remarks = (last_movement.remarks or "") if last_movement else ""
     # Only admin group (or superuser) can view creator/updater sensitive fields
     is_admin = request.user.is_superuser or request.user.groups.filter(name="admin").exists()
-    return render(request, "diary/diary_detail.html", {"diary": diary, "movements": movements, "can_view_sensitive": is_admin})
+    return render(
+        request,
+        "diary/diary_detail.html",
+        {
+            "diary": diary,
+            "movements": movements,
+            "can_view_sensitive": is_admin,
+            "last_movement_remarks": last_movement_remarks,
+        },
+    )
 
 @login_required
 def reports_home(request):
