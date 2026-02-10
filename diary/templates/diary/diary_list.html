@@ -127,6 +127,9 @@
               {% else %}
                 <span class="badge bg-secondary">{{ d.status }}</span>
               {% endif %}
+              {% if d.current_remarks %}
+                <div class="small text-muted mt-1 text-truncate" style="max-width:220px;" title="{{ d.current_remarks }}">{{ d.current_remarks|truncatechars:80 }}</div>
+              {% endif %}
             </td>
             <td>{{ d.marked_to|default:"—" }}</td>
             <td class="text-center">

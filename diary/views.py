@@ -516,8 +516,8 @@ def reports_pdf(request, year: int):
         data.append([
             str(d.sequence),
             d.diary_date.strftime("%d-%m-%Y") if d.diary_date else "-",
-            d.received_diary_no or "-",
-            d.received_from or "-",
+            Paragraph((d.received_diary_no or "-").replace("\n", "<br/>"), normal),
+            Paragraph((d.received_from or "-").replace("\n", "<br/>"), normal),
             d.file_letter or "-",
             folders_display,
             Paragraph((d.subject or "-").replace("\n", "<br/>"), normal),
@@ -703,8 +703,8 @@ def _build_pdf_data_for_year(year):
         data.append([
             str(d.sequence),
             d.diary_date.strftime("%d-%m-%Y") if d.diary_date else "-",
-            d.received_diary_no or "-",
-            d.received_from or "-",
+            Paragraph((d.received_diary_no or "-").replace("\n", "<br/>"), normal),
+            Paragraph((d.received_from or "-").replace("\n", "<br/>"), normal),
             d.file_letter or "-",
             folders_display,
             Paragraph((d.subject or "-").replace("\n", "<br/>"), normal),
