@@ -88,7 +88,11 @@ def diary_list(request):
         messages.error(request, "Please correct the errors in the form below.")
 
     # ---- listing + filtering ----
-    qs = Diary.objects.all()
+    qs = (
+        Diary.objects.all()
+        # Prefetch movements ordered newest-first so we can cheaply access last remarks
+        .prefetch_related(Prefetch("movements", queryset=DiaryMovement.objects.order_by("-action_datetime", "-id")))
+    )
 
     if year.isdigit():
         qs = qs.filter(year=int(year))
@@ -120,6 +124,15 @@ def diary_list(request):
     paginator = Paginator(qs, settings.DEFAULT_PAGE_SIZE)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
+
+    # Attach a lightweight `current_remarks` attribute on each diary for the template.
+    # Prefer `diary.remarks` if present, otherwise use the most recent movement's remarks.
+    for d in page_obj.object_list:
+        # `movements` was prefetched ordered newest-first, so first element (index 0) is latest
+        mvs = list(getattr(d, "movements").all()) if hasattr(d, "movements") else []
+        last_mv = mvs[0] if mvs else None
+        last_movement_remarks = (last_mv.remarks or "") if last_mv else ""
+        d.current_remarks = (d.remarks or "") or last_movement_remarks
 
     return render(
         request,
