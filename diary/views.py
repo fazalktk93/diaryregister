@@ -8,6 +8,10 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Max, Prefetch, Count
 from django.db.models.functions import ExtractMonth
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.http import JsonResponse
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 import io
 from django.http import HttpResponse
@@ -16,7 +20,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Flowable
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Flowable, Image
 from reportlab.pdfgen.canvas import Canvas
 
 from django.conf import settings
@@ -75,7 +79,11 @@ def diary_list(request):
         if create_form.is_valid():
             diary = create_diary_with_movement(dict(create_form.cleaned_data), request.user)
             messages.success(request, f"Diary created: {diary.diary_no}")
-            return redirect("diary_detail", pk=diary.pk)
+            # Stay on the listing page after create; preserve any query params
+            qs = request.GET.urlencode()
+            if qs:
+                return redirect(f"{request.path}?{qs}")
+            return redirect("diary_list")
 
         messages.error(request, "Please correct the errors in the form below.")
 
@@ -137,7 +145,8 @@ def diary_create(request):
         if form.is_valid():
             diary = create_diary_with_movement(dict(form.cleaned_data), request.user)
             messages.success(request, f"Diary created: {diary.diary_no}")
-            return redirect("diary_detail", pk=diary.pk)
+            # After creation when coming from a create page, return to listing
+            return redirect("diary_list")
 
         messages.error(request, "Please correct the errors below.")
     else:
@@ -194,8 +203,16 @@ def movement_add(request, pk: int):
             diary.save(update_fields=["marked_to", "marked_date", "status"])
 
             messages.success(request, "Movement added successfully.")
+            # If this was an AJAX request, return JSON so frontend can close modal
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return JsonResponse({"success": True})
+
             return redirect("diary_detail", pk=diary.pk)
 
+        # On validation error, return partial HTML for AJAX consumers
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            html = render_to_string("diary/_movement_form.html", {"form": form, "diary": diary, "offices": Office.objects.values_list("name", flat=True).order_by("name")}, request=request)
+            return JsonResponse({"success": False, "html": html})
         messages.error(request, "Please correct the errors below.")
     else:
         form = MovementCreateForm(
@@ -205,6 +222,11 @@ def movement_add(request, pk: int):
                 "action_datetime": timezone.localtime(timezone.now()).replace(second=0, microsecond=0),
             }
         )
+
+        # If AJAX GET, return only the form fragment
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            html = render_to_string("diary/_movement_form.html", {"form": form, "diary": diary, "offices": Office.objects.values_list("name", flat=True).order_by("name")}, request=request)
+            return JsonResponse({"success": True, "html": html})
 
     # Pass offices for autocomplete datalist
     offices = Office.objects.values_list("name", flat=True).order_by("name")
@@ -369,6 +391,7 @@ def reports_table(request):
                 "status": f_status,
                 "marked_to": f_marked_to,
             },
+            "can_view_sensitive": request.user.is_superuser or request.user.groups.filter(name="admin").exists(),
         },
     )
 
@@ -380,6 +403,11 @@ def reports_pdf(request, year: int):
     Includes movement history with deduplication for cleaner register-style output.
     Adds page numbers and optional watermark branding.
     """
+    # Only admin group (or superusers) may download the PDF
+    is_admin = request.user.is_superuser or request.user.groups.filter(name="admin").exists()
+    if not is_admin:
+        return HttpResponse(status=403)
+
     qs = (
         Diary.objects.filter(year=year)
         .only(
@@ -413,11 +441,28 @@ def reports_pdf(request, year: int):
     normal.leading = 10
 
     title = Paragraph(f"<b>Diary Record of Administration Directorate year {year}</b>", styles["Title"])
-    story = [title, Spacer(1, 10)]
+    story = []
+
+    # Add logo on first page (left-aligned) using the same static image
+    try:
+        from pathlib import Path
+        logo_path = Path(__file__).resolve().parent.parent / "static" / "diary" / "logo.png"
+        if logo_path.exists():
+            # scale logo to fit left side without overlapping; keep height ~0.6 inch
+            logo = Image(str(logo_path), width=1.5 * inch, height=0.6 * inch)
+            logo.hAlign = "LEFT"
+            story.append(logo)
+            story.append(Spacer(1, 6))
+    except Exception:
+        pass
+
+    story.append(title)
+    story.append(Spacer(1, 10))
 
     # PDF: omit Remarks and Status columns for a compact register-style export
+    # PDF: header label rename: History -> Movement
     data = [
-        ["Diary No", "Date", "Rcvd No", "Rcvd From", "File/Letter", "Folders", "Subject", "History"]
+        ["Diary No", "Date", "Rcvd No", "Rcvd From", "File/Letter", "Folders", "Subject", "Movement"]
     ]
 
     for d in qs:
@@ -441,13 +486,15 @@ def reports_pdf(request, year: int):
             history_text = " / ".join(deduped)
             history_flowable = Paragraph(history_text, normal)
 
+        # Folder display: only show number for File or Service Book, otherwise '-'
+        folders_display = str(d.no_of_folders) if (d.file_letter in ("File", "Service Book") and (d.no_of_folders or 0) > 0) else "-"
         data.append([
             str(d.sequence),
             d.diary_date.strftime("%d-%m-%Y") if d.diary_date else "-",
             d.received_diary_no or "-",
             d.received_from or "-",
             d.file_letter or "-",
-            str(d.no_of_folders),
+            folders_display,
             Paragraph((d.subject or "-").replace("\n", "<br/>"), normal),
             history_flowable,
         ])
@@ -485,42 +532,7 @@ def reports_pdf(request, year: int):
                 y = 12
                 self.drawRightString(x, y, f"Page {self._pageNumber} of {page_count}")
 
-                # Draw logo image as watermark in center, low opacity
-                try:
-                    # Direct path to logo (no staticfiles finder which may fail in Canvas)
-                    logo_path = Path(__file__).resolve().parent.parent / "static" / "diary" / "logo.png"
-                    if logo_path.exists():
-                        self.saveState()
-                        # Set transparency (alpha)
-                        self.setFillAlpha(0.15)
-                        # Draw logo centered and stretched (60% of page)
-                        logo_w = w * 0.6
-                        logo_h = h * 0.6
-                        logo_x = (w - logo_w) / 2
-                        logo_y = (h - logo_h) / 2
-                        self.drawImage(str(logo_path), logo_x, logo_y, width=logo_w, height=logo_h, preserveAspectRatio=False, mask='auto')
-                        self.restoreState()
-                    else:
-                        # Fallback: light text watermark
-                        self.saveState()
-                        self.setFillColorRGB(0.9, 0.9, 0.9)
-                        self.setFont("Helvetica", 28)
-                        self.translate(w / 2, h / 2)
-                        self.rotate(45)
-                        self.drawCentredString(0, 0, "Administration Directorate")
-                        self.restoreState()
-                except Exception as e:
-                    # Silent fallback
-                    try:
-                        self.saveState()
-                        self.setFillColorRGB(0.9, 0.9, 0.9)
-                        self.setFont("Helvetica", 28)
-                        self.translate(w / 2, h / 2)
-                        self.rotate(45)
-                        self.drawCentredString(0, 0, "Administration Directorate")
-                        self.restoreState()
-                    except Exception:
-                        pass
+                # Watermark removed per requirements; no background drawing here.
             except Exception:
                 pass
 
@@ -639,7 +651,7 @@ def _build_pdf_data_for_year(year):
     normal.leading = 10
 
     data = [
-        ["Diary No", "Date", "Rcvd No", "Rcvd From", "File/Letter", "Folders", "Subject", "History"]
+        ["Diary No", "Date", "Rcvd No", "Rcvd From", "File/Letter", "Folders", "Subject", "Movement"]
     ]
 
     for d in qs:
@@ -662,13 +674,14 @@ def _build_pdf_data_for_year(year):
             
             history_text = " / ".join(deduped)
 
+        folders_display = str(d.no_of_folders) if (d.file_letter in ("File", "Service Book") and (d.no_of_folders or 0) > 0) else "-"
         data.append([
             str(d.sequence),
             d.diary_date.strftime("%d-%m-%Y") if d.diary_date else "-",
             d.received_diary_no or "-",
             d.received_from or "-",
             d.file_letter or "-",
-            str(d.no_of_folders),
+            folders_display,
             Paragraph((d.subject or "-").replace("\n", "<br/>"), normal),
             Paragraph(history_text, normal),
         ])
@@ -708,13 +721,14 @@ def _csv_rows_for_year(year):
             
             history = " / ".join(deduped)
 
+        folders_display = str(d.no_of_folders) if (d.file_letter in ("File", "Service Book") and (d.no_of_folders or 0) > 0) else "-"
         yield [
             d.diary_no_short,
             str(d.diary_date),
             d.received_diary_no or "-",
             d.received_from or "-",
             d.file_letter or "-",
-            str(d.no_of_folders),
+            folders_display,
             (d.subject or "-").replace("\n", " "),
             (d.remarks or "-").replace("\n", " "),
             d.get_status_display() if hasattr(d, "get_status_display") else (d.status or "-"),
@@ -814,7 +828,73 @@ def dashboard(request):
 
 
 @login_required
+def dashboard_data(request, year: int):
+    """Return JSON data for dashboard for a given year (and optional month).
+    Used by AJAX to update dashboard without navigation.
+    """
+    try:
+        year_i = int(year)
+    except Exception:
+        return JsonResponse({"error": "invalid year"}, status=400)
+
+    # Month-wise counts for selected year
+    from django.db.models.functions import ExtractMonth
+    from django.db.models import Count
+    month_qs = (
+        Diary.objects.filter(year=year_i)
+        .annotate(month=ExtractMonth("diary_date"))
+        .values("month")
+        .annotate(count=Count("id"))
+        .order_by("month")
+    )
+
+    months = {m: 0 for m in range(1, 13)}
+    for row in month_qs:
+        months[row["month"]] = row["count"]
+
+    import calendar
+    months_list = []
+    for i in range(1, 13):
+        months_list.append({"month": i, "name": calendar.month_name[i], "count": months.get(i, 0)})
+
+    total = sum(m["count"] for m in months_list)
+
+    # If month param provided, return simple diary count for that month
+    month = request.GET.get("month")
+    month_count = None
+    if month and month.isdigit():
+        m_i = int(month)
+        month_count = Diary.objects.filter(year=year_i, diary_date__month=m_i).count()
+
+    return JsonResponse({"year": year_i, "months": months_list, "total": total, "month_count": month_count})
+
+
+@login_required
 def offices_directory(request):
     """Display directory of all offices for reference."""
     qs = Office.objects.order_by("name")
     return render(request, "diary/offices.html", {"offices": qs})
+
+
+@login_required
+def change_password(request):
+    """Allow users to change their password in-system using old+new password."""
+    if request.method == 'POST':
+        old = request.POST.get('old_password')
+        new1 = request.POST.get('new_password1')
+        new2 = request.POST.get('new_password2')
+        user = request.user
+        if not user.check_password(old or ''):
+            messages.error(request, 'Old password is incorrect.')
+        elif not new1 or not new2:
+            messages.error(request, 'Please enter the new password twice.')
+        elif new1 != new2:
+            messages.error(request, 'New passwords do not match.')
+        else:
+            user.set_password(new1)
+            user.save()
+            update_session_auth_hash(request, user)
+            messages.success(request, 'Password changed successfully.')
+            return redirect('dashboard')
+
+    return render(request, 'registration/change_password.html', {})

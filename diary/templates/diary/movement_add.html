@@ -13,47 +13,7 @@
   <div class="col-lg-8">
     <div class="card">
       <div class="card-body">
-        <form method="post" novalidate>
-          {% csrf_token %}
-
-          {% for field in form %}
-            <div class="mb-3">
-              <label for="{{ field.id_for_label }}" class="form-label">
-                {{ field.label }}
-                {% if field.field.required %}<span class="text-danger" aria-label="required">*</span>{% endif %}
-              </label>
-              {% if field.field.widget.input_type == "textarea" %}
-                {{ field }}
-              {% else %}
-                {{ field }}
-                {% if field == form.from_office or field == form.to_office %}
-                  <datalist id="office-list">
-                    {% for office in offices %}
-                      <option value="{{ office }}">
-                    {% endfor %}
-                  </datalist>
-                  <small class="form-text text-muted d-block mt-1">
-                    <i class="bi bi-info-circle"></i> Start typing to see available offices
-                  </small>
-                {% endif %}
-              {% endif %}
-              {% if field.errors %}
-                <div class="alert alert-danger mt-1 mb-0 py-1 px-2 small">
-                  <i class="bi bi-exclamation-circle"></i> {{ field.errors|striptags }}
-                </div>
-              {% endif %}
-            </div>
-          {% endfor %}
-
-          <div class="d-flex gap-2 mt-4">
-            <button class="btn btn-primary" type="submit">
-              <i class="bi bi-plus-circle"></i> Add Movement
-            </button>
-            <a class="btn btn-outline-secondary" href="{% url 'diary_detail' diary.pk %}">
-              <i class="bi bi-x-circle"></i> Cancel
-            </a>
-          </div>
-        </form>
+        {% include 'diary/_movement_form.html' %}
       </div>
     </div>
   </div>

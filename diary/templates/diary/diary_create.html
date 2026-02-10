@@ -53,10 +53,11 @@
     if (!kind || !folders) return;
 
     function syncFoldersState() {
-      const isFile = (kind.value || "").toLowerCase() === "file";
-      folders.disabled = !isFile;
-      folders.closest('.mb-3')?.classList.toggle('opacity-50', !isFile);
-      if (!isFile) folders.value = 0;
+      const v = (kind.value || "").toLowerCase();
+      const enabled = v === "file" || v === "service book";
+      folders.disabled = !enabled;
+      folders.closest('.mb-3')?.classList.toggle('opacity-50', !enabled);
+      if (!enabled) folders.value = 0;
     }
 
     kind.addEventListener("change", syncFoldersState);

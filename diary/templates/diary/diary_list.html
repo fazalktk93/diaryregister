@@ -60,6 +60,21 @@
   </div>
 </div>
 
+      <!-- ========== Movement Modal (AJAX loaded) ========== -->
+      <div class="modal fade" id="movementModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-md">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title"><i class="bi bi-arrow-repeat"></i> Add Movement</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="movementModalBody">
+              <div class="text-center py-5 text-muted">Loading...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
 <div class="card">
   <div class="table-responsive">
     <table class="table table-hover mb-0 align-middle" role="grid" aria-label="Diary list">
@@ -100,7 +115,7 @@
               {% endif %}
             </td>
             <td>
-              <div class="text-truncate" style="max-width: 250px;" title="{{ d.subject|default:'' }}">
+              <div style="max-width: 350px; white-space: normal; word-break: break-word; overflow-wrap: anywhere;">
                 {{ d.subject|default:"—" }}
               </div>
             </td>
@@ -115,9 +130,12 @@
             </td>
             <td>{{ d.marked_to|default:"—" }}</td>
             <td class="text-center">
-              <a class="btn btn-sm btn-outline-primary" href="{% url 'diary_detail' d.pk %}" aria-label="Open diary {{ d.diary_no }}">
-                <i class="bi bi-arrow-right"></i> View
+              <a class="btn btn-sm btn-info rounded me-2" href="{% url 'diary_detail' d.pk %}" aria-label="Open diary {{ d.diary_no }}">
+                <i class="bi bi-eye"></i> View
               </a>
+              <button type="button" class="btn btn-sm btn-success rounded movement-btn" data-url="{% url 'movement_add' d.pk %}" data-pk="{{ d.pk }}" aria-label="Add movement for diary {{ d.diary_no }}">
+                <i class="bi bi-arrow-repeat"></i> Movement
+              </button>
             </td>
           </tr>
         {% empty %}
@@ -265,7 +283,7 @@
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
           <button class="btn btn-primary"><i class="bi bi-plus-circle"></i> Create Diary</button>
         </div>
       </form>
@@ -281,7 +299,8 @@
 
     function syncFoldersState() {
       if (!kind || !folders) return;
-      const isFile = (kind.value || "").toLowerCase() === "file";
+      const val = (kind.value || "").toLowerCase();
+      const isFile = val === "file" || val === "service book";
       folders.disabled = !isFile;
 
       const wrap = folders.closest(".col-md-4") || folders.closest(".mb-3");
@@ -300,6 +319,77 @@
     if (formErrors.length > 0) {
       const el = document.getElementById("newDiaryModal");
       if (el) new bootstrap.Modal(el).show();
+    }
+  });
+</script>
+
+<script>
+  // Movement modal handling: load form via AJAX and submit via fetch
+  document.addEventListener('DOMContentLoaded', function () {
+    const modalEl = document.getElementById('movementModal');
+    if (!modalEl) return;
+    const movementModal = new bootstrap.Modal(modalEl);
+    const body = document.getElementById('movementModalBody');
+
+    function getCookie(name) {
+      const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+      return v ? v.pop() : '';
+    }
+
+    document.querySelectorAll('.movement-btn').forEach(function(btn){
+      btn.addEventListener('click', function (ev){
+        ev.preventDefault();
+        const url = btn.getAttribute('data-url') || btn.getAttribute('href');
+        body.innerHTML = '<div class="text-center py-5 text-muted">Loading...</div>';
+        movementModal.show();
+        fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}, credentials: 'same-origin'})
+          .then(r => r.json())
+          .then(data => {
+            if (data.success && data.html) {
+              body.innerHTML = data.html;
+              attachFormHandler(url);
+            } else if (data.html) {
+              body.innerHTML = data.html;
+              attachFormHandler(url);
+            } else {
+              body.innerHTML = '<div class="text-danger p-3">Unable to load form.</div>';
+            }
+          }).catch(() => {
+            body.innerHTML = '<div class="text-danger p-3">Unable to load form.</div>';
+          });
+      });
+    });
+
+    function attachFormHandler(url) {
+      const form = body.querySelector('#movementForm');
+      if (!form) return;
+      form.addEventListener('submit', function (ev){
+        ev.preventDefault();
+        const formData = new FormData(form);
+        fetch(url, {
+          method: 'POST',
+          headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken')},
+          credentials: 'same-origin',
+          body: formData
+        }).then(r => r.json()).then(data => {
+          if (data.success) {
+            movementModal.hide();
+            // show temporary success alert
+            const el = document.createElement('div');
+            el.className = 'alert alert-success mt-3';
+            el.role = 'alert';
+            el.innerText = 'Movement added successfully.';
+            const main = document.querySelector('main.container') || document.querySelector('main');
+            if (main) main.prepend(el);
+            setTimeout(()=>el.remove(), 4000);
+          } else if (data.html) {
+            body.innerHTML = data.html;
+            attachFormHandler(url);
+          }
+        }).catch(()=>{
+          body.innerHTML = '<div class="text-danger p-3">Submission failed.</div>';
+        });
+      });
     }
   });
 </script>

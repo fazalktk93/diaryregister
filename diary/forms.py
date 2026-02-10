@@ -15,6 +15,8 @@ class DiaryCreateForm(forms.ModelForm):
     FILE_LETTER_CHOICES = (
         ("File", "File"),
         ("Letter", "Letter"),
+        ("Service Book", "Service Book"),
+        ("Application", "Application"),
     )
 
     # Override diary_date to use timezone.localdate as default
@@ -63,15 +65,14 @@ class DiaryCreateForm(forms.ModelForm):
         cleaned = super().clean()
         kind = (cleaned.get("file_letter") or "").strip()
         folders = cleaned.get("no_of_folders")
-
-        if kind == "Letter":
-            # For Letter, force folders to 0
+        # For types that don't use folders, clear it
+        if kind in ("Letter", "Application"):
             cleaned["no_of_folders"] = 0
 
-        elif kind == "File":
-            # For File, folders required and must be >= 1
+        elif kind in ("File", "Service Book"):
+            # For File and Service Book, folders required and must be >= 1
             if folders in (None, ""):
-                self.add_error("no_of_folders", "No. of folders is required for File.")
+                self.add_error("no_of_folders", "No. of folders is required for File/Service Book.")
             else:
                 try:
                     folders_int = int(folders)
@@ -79,10 +80,9 @@ class DiaryCreateForm(forms.ModelForm):
                     self.add_error("no_of_folders", "Enter a valid number.")
                 else:
                     if folders_int < 1:
-                        self.add_error("no_of_folders", "Must be 1 or more for File.")
-
+                        self.add_error("no_of_folders", "Must be 1 or more for File/Service Book.")
         else:
-            self.add_error("file_letter", "Please select File or Letter.")
+            self.add_error("file_letter", "Please select a valid type.")
 
         return cleaned
 

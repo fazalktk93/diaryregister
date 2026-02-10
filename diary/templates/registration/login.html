@@ -1,14 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Login - Diary Register{% endblock %}
+{% block title %}Login - Diary Management System (DMS){% endblock %}
 
 {% block content %}
+<style>
+  /* Hide site chrome to show only the login form for unauthenticated users */
+  nav.navbar, footer, .page-header, .navbar-nav { display: none !important; }
+  main.container { max-width: 640px; margin-top: 6rem; }
+</style>
+
 <div class="row justify-content-center">
-  <div class="col-md-5">
+  <div class="col-md-7">
     <div class="card" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); overflow: hidden;">
       <!-- Card Header with Gradient -->
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; text-align: center;">
-        <h3 class="mb-2">🔐 Diary Register</h3>
-        <p class="mb-0 opacity-75">Admin Management System</p>
+      <div style="background: var(--primary-gradient); color: white; padding: 2rem; text-align: center;">
+        <h3 class="mb-2">Diary Management System (DMS)</h3>
+        <p class="mb-0 opacity-75">Secure Diary Register</p>
       </div>
 
       <div class="card-body p-4">
@@ -62,26 +68,13 @@
           </div>
         </form>
 
-        <!-- Divider -->
-        <hr class="my-3">
-
-        <!-- Password Reset Link -->
-        <div class="text-center">
-          <p class="mb-2">
-            <a href="{% url 'password_reset' %}" class="text-decoration-none">
-              <i class="bi bi-key"></i> Forgot Your Password?
-            </a>
-          </p>
-          <small class="text-muted">
-            Click to reset your password
-          </small>
-        </div>
+        <!-- Divider removed: login only page -->
       </div>
 
       <!-- Footer -->
       <div class="card-footer bg-light text-center py-3">
         <small class="text-muted">
-          Protected by <strong>Diary Register System</strong>
+          Protected by <strong>Diary Management System (DMS)</strong>
         </small>
       </div>
     </div>
