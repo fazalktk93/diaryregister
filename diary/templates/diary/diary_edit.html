@@ -131,13 +131,14 @@
 
     function syncFoldersState() {
       if (!kind || !folders) return;
-      const isFile = (kind.value || "").toLowerCase() === "file";
-      folders.disabled = !isFile;
+      const v = (kind.value || "").toLowerCase();
+      const enabled = v === "file" || v === "service book";
+      folders.disabled = !enabled;
 
       const wrap = folders.closest(".col-md-6") || folders.closest(".mb-3");
-      if (wrap) wrap.classList.toggle("opacity-50", !isFile);
+      if (wrap) wrap.classList.toggle("opacity-50", !enabled);
 
-      if (!isFile) folders.value = 0;
+      if (!enabled) folders.value = 0;
     }
 
     if (kind && folders) {

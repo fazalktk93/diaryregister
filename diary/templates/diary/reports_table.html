@@ -8,9 +8,11 @@
       <h1 class="mb-1"><i class="bi bi-bar-chart"></i> Reports</h1>
       <p class="text-light mb-0 opacity-75">View and export comprehensive diary data</p>
     </div>
-    <button class="btn btn-light" type="button" id="btnPdfLocal" aria-label="Generate PDF report">
-      <i class="bi bi-file-earmark-pdf"></i> Download PDF
-    </button>
+    {% if can_view_sensitive %}
+      <button class="btn btn-light" type="button" id="btnPdfLocal" aria-label="Generate PDF report">
+        <i class="bi bi-file-earmark-pdf"></i> Download PDF
+      </button>
+    {% endif %}
   </div>
 </div>
 
@@ -117,8 +119,10 @@
                 <span class="text-muted">—</span>
               {% endif %}
             </td>
-            <td class="text-truncate" style="max-width: 200px;" title="{{ d.subject|default:'' }}">
-              <small>{{ d.subject|default:"—" }}</small>
+            <td>
+              <div style="max-width: 320px; white-space: normal; word-break: break-word; overflow-wrap: anywhere;">
+                <small>{{ d.subject|default:"—" }}</small>
+              </div>
             </td>
             <td>
               {% if d.status == "Pending" %}

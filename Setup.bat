@@ -16,6 +16,6 @@ python manage.py makemigrations
 python manage.py migrate
 
 echo 🚀 Starting server...
-python manage.py runserver
+python manage.py runserver 0.0.0.0:7000
 
 pause

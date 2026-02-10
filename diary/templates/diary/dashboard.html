@@ -3,15 +3,16 @@
 
 {% block content %}
 <style>
-  .dashboard-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; }
+  .dashboard-header { background: var(--primary-gradient); color: white; border-radius: 12px; }
+  .dashboard-header h1 { color: white !important; -webkit-text-fill-color: unset !important; background: none !important; -webkit-background-clip: unset !important; }
   .stat-card { transition: transform 0.2s, box-shadow 0.2s; border: none; }
   .stat-card:hover { transform: translateY(-4px); box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
-  .month-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; }
+  .month-card { background: var(--primary-color); color: white; border-radius: 8px; }
   .month-card .count { font-size: 2rem; font-weight: 700; }
   .month-card .month-name { font-size: 0.9rem; opacity: 0.9; }
-  .year-card { background: white; border: 2px solid #667eea; cursor: pointer; transition: all 0.2s; }
-  .year-card:hover { background: #667eea; color: white; }
-  .year-card.active { background: #667eea; color: white; }
+  .year-card { background: white; border: 2px solid var(--primary-color); cursor: pointer; transition: all 0.2s; }
+  .year-card:hover { background: var(--primary-color); color: white; }
+  .year-card.active { background: var(--primary-color); color: white; }
   .badge-count { font-size: 1.2rem; padding: 0.5rem 0.75rem; }
 </style>
 
@@ -41,10 +42,10 @@
         </div>
         <div class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
           {% for y in years %}
-            <a href="{% url 'diary_year_report' y.year %}" class="year-card list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 {% if y.year == year %}active{% endif %}" role="button" aria-label="View year {{ y.year }} with {{ y.count }} diaries">
+            <button type="button" class="year-card list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 {% if y.year == year %}active{% endif %} year-select" data-year="{{ y.year }}" aria-label="Select year {{ y.year }}">
               <div class="fw-600">{{ y.year }}</div>
               <span class="badge bg-secondary badge-count">{{ y.count }}</span>
-            </a>
+            </button>
           {% empty %}
             <div class="list-group-item text-muted text-center py-4">
               <p class="mb-0">No diary records yet</p>
@@ -224,13 +225,14 @@
 
     function syncFoldersState() {
       if (!kind || !folders) return;
-      const isFile = (kind.value || "").toLowerCase() === "file";
-      folders.disabled = !isFile;
+      const v = (kind.value || "").toLowerCase();
+      const enabled = v === "file" || v === "service book";
+      folders.disabled = !enabled;
 
       const wrap = folders.closest(".col-md-4") || folders.closest(".mb-3");
-      if (wrap) wrap.classList.toggle("opacity-50", !isFile);
+      if (wrap) wrap.classList.toggle("opacity-50", !enabled);
 
-      if (!isFile) folders.value = 0;
+      if (!enabled) folders.value = 0;
     }
 
     if (kind && folders) {
@@ -262,6 +264,73 @@
     const totalCountEl = document.getElementById("total-count");
     if (totalCountEl) totalCountEl.textContent = counts;
   });
+</script>
+
+<script>
+  (function(){
+    const yearButtons = document.querySelectorAll('.year-select');
+    const monthsGrid = document.getElementById('months-grid');
+    const totalDiariesEl = document.getElementById('total-diaries');
+    const totalCountEl = document.getElementById('total-count');
+
+    function renderMonths(months) {
+      if (!monthsGrid) return;
+      monthsGrid.innerHTML = '';
+      months.forEach(function(m){
+        const col = document.createElement('div');
+        col.className = 'col-md-4 col-lg-3';
+        const inner = document.createElement('div');
+        inner.className = 'month-card p-4 text-center';
+        inner.setAttribute('data-month', m.month);
+        inner.setAttribute('role', 'button');
+        inner.tabIndex = 0;
+        inner.innerHTML = `<div class="month-name fw-500">${m.name}</div><div class="count mt-2">${m.count}</div><small class="d-block mt-2 opacity-75">Click to filter</small>`;
+        inner.addEventListener('click', function(){ fetchDashboard(currentYear, m.month); });
+        col.appendChild(inner);
+        monthsGrid.appendChild(col);
+      });
+    }
+
+    let currentYear = {{ year }};
+
+    function fetchDashboard(y, month) {
+      const url = `{% url 'dashboard_data' 2000 %}`.replace('2000', y) + (month ? `?month=${month}` : '');
+      fetch(url, {headers: {'x-requested-with': 'XMLHttpRequest'}})
+        .then(r => r.json())
+        .then(data => {
+          if (data.months) {
+            renderMonths(data.months);
+            if (totalDiariesEl) totalDiariesEl.textContent = data.total;
+            if (totalCountEl) totalCountEl.textContent = data.total;
+            currentYear = data.year;
+            // update active year button
+            document.querySelectorAll('.year-select').forEach(function(b){
+              b.classList.toggle('active', parseInt(b.dataset.year) === data.year);
+            });
+            // show month_count if provided
+            if (typeof data.month_count === 'number' && data.month_count !== null) {
+              const el = document.getElementById('month-selected-info');
+              if (el) el.textContent = `Selected month count: ${data.month_count}`;
+            }
+          }
+        }).catch(()=>{});
+    }
+
+    yearButtons.forEach(function(b){
+      b.addEventListener('click', function(){
+        const y = b.dataset.year;
+        fetchDashboard(y);
+      });
+    });
+
+    // Attach month click handlers for initially rendered months
+    document.querySelectorAll('.month-card').forEach(function(mc){
+      mc.addEventListener('click', function(){
+        const m = mc.dataset.month;
+        fetchDashboard(currentYear, m);
+      });
+    });
+  })();
 </script>
 
 {% endblock %}
