@@ -15,9 +15,9 @@
       </p>
     </div>
     <div class="btn-group btn-group-sm" role="group" aria-label="Diary actions">
-      <a class="btn btn-light" href="{% url 'movement_add' diary.pk %}" aria-label="Add a new movement to this diary">
+      <button type="button" class="btn btn-light movement-btn" data-url="{% url 'movement_add' diary.pk %}" aria-label="Add a new movement to this diary">
         <i class="bi bi-plus-circle"></i> Movement
-      </a>
+      </button>
       {% if can_view_sensitive %}
         <a class="btn btn-light" href="{% url 'diary_edit' diary.pk %}" aria-label="Edit diary {{ diary.diary_no }}">
           <i class="bi bi-pencil"></i> Edit
@@ -29,6 +29,22 @@
     </div>
   </div>
 </div>
+
+          <!-- ========== Movement Modal (AJAX loaded) ========== -->
+          <div class="modal fade" id="movementModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-md">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title"><i class="bi bi-arrow-repeat"></i> Movement</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="movementModalBody">
+                  <div class="text-center py-5 text-muted">Loading...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
 
 <div class="row g-4 mb-4">
   <div class="col-md-6">
@@ -133,6 +149,9 @@
           {% if can_view_sensitive %}
             <th scope="col">By</th>
           {% endif %}
+          {% if can_change_movement or can_delete_movement %}
+            <th scope="col" class="text-center">Actions</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody>
@@ -159,10 +178,25 @@
                 <small class="badge bg-light text-dark">{{ m.created_by }}</small>
               </td>
             {% endif %}
+            {% if can_change_movement or can_delete_movement %}
+              <td class="text-end">
+                <div class="btn-group btn-group-sm" role="group" aria-label="Movement actions">
+                  {% if can_change_movement %}
+                    <button type="button" class="btn btn-outline-secondary movement-btn" data-url="{% url 'movement_edit' m.pk %}" aria-label="Edit movement {{ m.id }}"><i class="bi bi-pencil"></i></button>
+                  {% endif %}
+                  {% if can_delete_movement %}
+                    <form method="post" action="{% url 'movement_delete' m.pk %}" onsubmit="return confirm('Delete this movement?');" style="display:inline;">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash"></i></button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            {% endif %}
           </tr>
         {% empty %}
           <tr role="row">
-            <td colspan="{% if can_view_sensitive %}6{% else %}5{% endif %}" class="text-center py-5">
+            <td colspan="{% if can_view_sensitive %}{% if can_change_movement or can_delete_movement %}7{% else %}6{% endif %}{% else %}{% if can_change_movement or can_delete_movement %}6{% else %}5{% endif %}{% endif %}" class="text-center py-5">
               <i class="bi bi-inbox" style="font-size: 2rem; color: #ccc;"></i>
               <p class="text-muted mt-2">No movements yet. Add one to track this diary.</p>
             </td>
@@ -200,3 +234,77 @@
 </div>
 
 {% endblock %}
+
+    <script>
+      // Movement modal handling: load form via AJAX and submit via fetch
+      document.addEventListener('DOMContentLoaded', function () {
+        const modalEl = document.getElementById('movementModal');
+        if (!modalEl) return;
+        const movementModal = new bootstrap.Modal(modalEl);
+        const body = document.getElementById('movementModalBody');
+
+        function getCookie(name) {
+          const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+          return v ? v.pop() : '';
+        }
+
+        // Attach to any button/link with data-url attribute used for movement add/edit
+        document.querySelectorAll('.movement-btn').forEach(function(btn){
+          btn.addEventListener('click', function (ev){
+            ev.preventDefault();
+            const url = btn.getAttribute('data-url') || btn.getAttribute('href');
+            body.innerHTML = '<div class="text-center py-5 text-muted">Loading...</div>';
+            movementModal.show();
+            fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}, credentials: 'same-origin'})
+              .then(r => r.json())
+              .then(data => {
+                if (data.success && data.html) {
+                  body.innerHTML = data.html;
+                  attachFormHandler(url);
+                } else if (data.html) {
+                  body.innerHTML = data.html;
+                  attachFormHandler(url);
+                } else {
+                  body.innerHTML = '<div class="text-danger p-3">Unable to load form.</div>';
+                }
+              }).catch(() => {
+                body.innerHTML = '<div class="text-danger p-3">Unable to load form.</div>';
+              });
+          });
+        });
+
+        function attachFormHandler(url) {
+          const form = body.querySelector('#movementForm');
+          if (!form) return;
+          form.addEventListener('submit', function (ev){
+            ev.preventDefault();
+            const formData = new FormData(form);
+            fetch(url, {
+              method: 'POST',
+              headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken')},
+              credentials: 'same-origin',
+              body: formData
+            }).then(r => r.json()).then(data => {
+              if (data.success) {
+                movementModal.hide();
+                // show temporary success alert
+                const el = document.createElement('div');
+                el.className = 'alert alert-success mt-3';
+                el.role = 'alert';
+                el.innerText = 'Movement saved successfully.';
+                const main = document.querySelector('main.container') || document.querySelector('main');
+                if (main) main.prepend(el);
+                setTimeout(()=>el.remove(), 4000);
+                // Optionally reload page to reflect changes
+                setTimeout(()=>location.reload(), 600);
+              } else if (data.html) {
+                body.innerHTML = data.html;
+                attachFormHandler(url);
+              }
+            }).catch(()=>{
+              body.innerHTML = '<div class="text-danger p-3">Submission failed.</div>';
+            });
+          });
+        }
+      });
+    </script>

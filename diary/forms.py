@@ -15,8 +15,6 @@ class DiaryCreateForm(forms.ModelForm):
     FILE_LETTER_CHOICES = (
         ("File", "File"),
         ("Letter", "Letter"),
-        ("Service Book", "Service Book"),
-        ("Application", "Application"),
     )
 
     # Override diary_date to use timezone.localdate as default
@@ -37,6 +35,7 @@ class DiaryCreateForm(forms.ModelForm):
             "received_diary_no",
             "received_from",
             "file_letter",
+            "service_included",
             "no_of_folders",
             "subject",
             "marked_to",
@@ -61,18 +60,33 @@ class DiaryCreateForm(forms.ModelForm):
         widget=forms.NumberInput(attrs={"class": "form-control", "min": 0, "inputmode": "numeric"}),
     )
 
+    service_included = forms.BooleanField(required=False, initial=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ensure the service checkbox renders with Bootstrap form-check classes
+        try:
+            w = self.fields["service_included"].widget
+            existing = w.attrs.get("class", "")
+            classes = (existing + " form-check-input service-check-input").strip()
+            w.attrs.update({"class": classes})
+        except Exception:
+            pass
+
     def clean(self):
         cleaned = super().clean()
         kind = (cleaned.get("file_letter") or "").strip()
         folders = cleaned.get("no_of_folders")
         # For types that don't use folders, clear it
-        if kind in ("Letter", "Application"):
+        if kind == "Letter":
             cleaned["no_of_folders"] = 0
+            # ensure service flag cleared for Letter type
+            cleaned["service_included"] = False
 
-        elif kind in ("File", "Service Book"):
-            # For File and Service Book, folders required and must be >= 1
+        elif kind == "File":
+            # For File, folders required and must be >= 1
             if folders in (None, ""):
-                self.add_error("no_of_folders", "No. of folders is required for File/Service Book.")
+                self.add_error("no_of_folders", "No. of folders is required for File.")
             else:
                 try:
                     folders_int = int(folders)
@@ -80,7 +94,7 @@ class DiaryCreateForm(forms.ModelForm):
                     self.add_error("no_of_folders", "Enter a valid number.")
                 else:
                     if folders_int < 1:
-                        self.add_error("no_of_folders", "Must be 1 or more for File/Service Book.")
+                        self.add_error("no_of_folders", "Must be 1 or more for File.")
         else:
             self.add_error("file_letter", "Please select a valid type.")
 

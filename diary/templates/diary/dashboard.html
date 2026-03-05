@@ -226,7 +226,7 @@
     function syncFoldersState() {
       if (!kind || !folders) return;
       const v = (kind.value || "").toLowerCase();
-      const enabled = v === "file" || v === "service book";
+      const enabled = v === "file";
       folders.disabled = !enabled;
 
       const wrap = folders.closest(".col-md-4") || folders.closest(".mb-3");

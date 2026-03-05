@@ -104,7 +104,7 @@
               <small class="text-muted">{{ d.diary_date|date:"M d, Y" }}</small>
             </td>
             <td>{{ d.received_diary_no|default:"—" }}</td>
-            <td><small>{{ d.received_from|default:"—" }}</small></td>
+            <td><small>{{ d.received_from|cut:"Registry"|default_if_none:"" }}</small></td>
             <td>
               {% if d.file_letter %}
                 <span class="badge {% if d.file_letter == 'File' %}bg-primary{% else %}bg-info{% endif %}">{{ d.file_letter }}</span>
@@ -134,11 +134,12 @@
               {% endif %}
             </td>
             <td>
-              <small class="text-muted d-block text-truncate" style="max-width: 180px;" title="{{ d.movement_history_plain }}">
-                {{ d.movement_history_plain|truncatewords:5 }}
+              <small class="text-muted d-block text-truncate" style="max-width: 180px;"
+                    title="{{ d.movement_history_plain|cut:'Registry'|default_if_none:'' }}">
+                {{ d.movement_history_plain|cut:"Registry"|default_if_none:""|truncatewords:5 }}
               </small>
             </td>
-            <td><small>{{ d.marked_to|default:"—" }}</small></td>
+            <td><small>{{ d.marked_to|cut:"Registry"|default_if_none:"" }}</small></td>
           </tr>
         {% empty %}
           <tr role="row">

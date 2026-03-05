@@ -54,10 +54,18 @@
 
     function syncFoldersState() {
       const v = (kind.value || "").toLowerCase();
-      const enabled = v === "file" || v === "service book";
+      const enabled = v === "file";
       folders.disabled = !enabled;
       folders.closest('.mb-3')?.classList.toggle('opacity-50', !enabled);
       if (!enabled) folders.value = 0;
+
+      // Toggle service_included checkbox visibility
+      const serviceEl = document.getElementById('id_service_included');
+      if (serviceEl) {
+        const wrap = serviceEl.closest('.mb-3') || serviceEl.closest('.row') || serviceEl.parentElement;
+        if (wrap) wrap.style.display = enabled ? '' : 'none';
+        if (!enabled) serviceEl.checked = false;
+      }
     }
 
     kind.addEventListener("change", syncFoldersState);

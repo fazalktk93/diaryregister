@@ -41,6 +41,7 @@ class Diary(models.Model):
     received_diary_no = models.CharField(max_length=100, blank=True, default="")
     file_letter = models.CharField(max_length=100, blank=True, default="")
     no_of_folders = models.PositiveIntegerField(default=0)
+    service_included = models.BooleanField(default=False)
 
     subject = models.TextField(blank=True, default="")
     remarks = models.TextField(blank=True, default="")
@@ -132,6 +133,7 @@ class Diary(models.Model):
             parts.append(f"{(mv.to_office or '-') } {d.strftime('%d-%m')}")
 
         return " / ".join(parts)
+
 
 
     def clean(self):

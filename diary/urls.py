@@ -15,5 +15,7 @@ urlpatterns = [
     path("diary/<int:pk>/edit/", views.diary_edit, name="diary_edit"),
     path("diary/<int:pk>/delete/", views.diary_delete, name="diary_delete"),
     path("diary/<int:pk>/movement/add/", views.movement_add, name="movement_add"),
+    path("movement/<int:pk>/edit/", views.movement_edit, name="movement_edit"),
+    path("movement/<int:pk>/delete/", views.movement_delete, name="movement_delete"),
     path("change-password/", views.change_password, name="change_password"),
 ]
