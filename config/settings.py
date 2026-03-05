@@ -79,6 +79,11 @@ LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "diary_list"
 LOGOUT_REDIRECT_URL = "login"
 
+# Session timeout configuration (Auto logout after 30 minutes of inactivity)
+SESSION_COOKIE_AGE = 1800   # 30 minutes in seconds
+SESSION_SAVE_EVERY_REQUEST = True   # reset timer on each request
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
 # Django app-level constants
 DEFAULT_OFFICE_NAME = "Registry"
 DEFAULT_PAGE_SIZE = 50
