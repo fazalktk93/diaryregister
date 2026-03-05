@@ -14,3 +14,4 @@ _pycache__*
 venv/*
 venv
 tests/*
+db.sqlite3
