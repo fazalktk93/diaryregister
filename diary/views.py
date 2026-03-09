@@ -72,12 +72,16 @@ def diary_list(request):
     status = (request.GET.get("status") or "").strip()
 
     # ---- create (modal POST) ----
-    is_admin = request.user.is_superuser or request.user.groups.filter(name="admin").exists()
+    # `can_view_sensitive` is only for revealing creator/updater fields in templates.
+    # Do NOT use group name checks; rely on superuser for this sensitive flag.
     create_form = DiaryCreateForm()
     if request.method == "POST":
         create_form = DiaryCreateForm(request.POST)
         if create_form.is_valid():
-            diary = create_diary_with_movement(dict(create_form.cleaned_data), request.user)
+            # Extract cleaned data and remove diary_type (not a model field)
+            diary_data = dict(create_form.cleaned_data)
+            diary_data.pop("diary_type", None)
+            diary = create_diary_with_movement(diary_data, request.user)
             messages.success(request, f"Diary created: {diary.diary_no}")
             # Stay on the listing page after create; preserve any query params
             qs = request.GET.urlencode()
@@ -88,7 +92,11 @@ def diary_list(request):
         messages.error(request, "Please correct the errors in the form below.")
 
     # ---- listing + filtering ----
-    qs = Diary.objects.all()
+    qs = (
+        Diary.objects.all()
+        # Prefetch movements ordered newest-first so we can cheaply access last remarks
+        .prefetch_related(Prefetch("movements", queryset=DiaryMovement.objects.order_by("-action_datetime", "-id")))
+    )
 
     if year.isdigit():
         qs = qs.filter(year=int(year))
@@ -121,6 +129,15 @@ def diary_list(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
+    # Attach a lightweight `current_remarks` attribute on each diary for the template.
+    # Prefer `diary.remarks` if present, otherwise use the most recent movement's remarks.
+    for d in page_obj.object_list:
+        # `movements` was prefetched ordered newest-first, so first element (index 0) is latest
+        mvs = list(getattr(d, "movements").all()) if hasattr(d, "movements") else []
+        last_mv = mvs[0] if mvs else None
+        last_movement_remarks = (last_mv.remarks or "") if last_mv else ""
+        d.current_remarks = (d.remarks or "") or last_movement_remarks
+
     return render(
         request,
         "diary/diary_list.html",
@@ -131,7 +148,8 @@ def diary_list(request):
             "status": status,
             "status_choices": Diary.Status.choices,
             "create_form": create_form,
-            "can_view_sensitive": is_admin,
+            "can_view_sensitive": request.user.is_superuser,
+            "can_add_movement": request.user.has_perm("diary.add_diarymovement"),
         },
     )
 
@@ -139,11 +157,14 @@ def diary_list(request):
 @login_required
 def diary_create(request):
     """Create a new diary. Can be accessed directly or from modal on diary_list."""
-    is_admin = request.user.is_superuser or request.user.groups.filter(name="admin").exists()
+    # creation is permitted to authenticated users by default; do not check groups here
     if request.method == "POST":
         form = DiaryCreateForm(request.POST)
         if form.is_valid():
-            diary = create_diary_with_movement(dict(form.cleaned_data), request.user)
+            # Extract cleaned data and remove diary_type (not a model field)
+            diary_data = dict(form.cleaned_data)
+            diary_data.pop("diary_type", None)
+            diary = create_diary_with_movement(diary_data, request.user)
             messages.success(request, f"Diary created: {diary.diary_no}")
             # After creation when coming from a create page, return to listing
             return redirect("diary_list")
@@ -160,9 +181,31 @@ def diary_detail(request, pk: int):
     """Display detailed view of a single diary with its movement history."""
     diary = get_object_or_404(Diary, pk=pk)
     movements = diary.movements.all().order_by("action_datetime", "id")
-    # Only admin group (or superuser) can view creator/updater sensitive fields
-    is_admin = request.user.is_superuser or request.user.groups.filter(name="admin").exists()
-    return render(request, "diary/diary_detail.html", {"diary": diary, "movements": movements, "can_view_sensitive": is_admin})
+    # Provide last movement remarks as a fallback when diary.remarks is empty
+    last_movement = diary.movements.order_by("-action_datetime", "-id").first()
+    last_movement_remarks = (last_movement.remarks or "") if last_movement else ""
+    # Compute permission flags for template/UI control. Use Django model permissions,
+    # not hardcoded group names. Keep `can_view_sensitive` for showing creator/updater info.
+    can_edit = request.user.has_perm("diary.change_diary")
+    can_delete = request.user.has_perm("diary.delete_diary")
+    can_add_movement = request.user.has_perm("diary.add_diarymovement")
+    can_change_movement = request.user.has_perm("diary.change_diarymovement")
+    can_delete_movement = request.user.has_perm("diary.delete_diarymovement")
+    return render(
+        request,
+        "diary/diary_detail.html",
+        {
+            "diary": diary,
+            "movements": movements,
+            "can_view_sensitive": request.user.is_superuser,
+            "can_edit": can_edit,
+            "can_delete": can_delete,
+            "can_add_movement": can_add_movement,
+            "can_change_movement": can_change_movement,
+            "can_delete_movement": can_delete_movement,
+            "last_movement_remarks": last_movement_remarks,
+        },
+    )
 
 @login_required
 def reports_home(request):
@@ -188,6 +231,11 @@ def movement_add(request, pk: int):
 
     last = diary.movements.order_by("-action_datetime", "-id").first()
     default_from = (last.to_office if last else diary.received_from) or settings.DEFAULT_OFFICE_NAME
+
+    # Enforce movement-add permission
+    if not request.user.has_perm("diary.add_diarymovement"):
+        messages.error(request, "You do not have permission to add movements.")
+        return redirect("diary_detail", pk=diary.pk)
 
     if request.method == "POST":
         form = MovementCreateForm(request.POST)
@@ -234,23 +282,114 @@ def movement_add(request, pk: int):
 
 
 @login_required
+def movement_edit(request, pk: int):
+    """Edit an existing DiaryMovement. Requires `diary.change_diarymovement` permission."""
+    mv = get_object_or_404(DiaryMovement, pk=pk)
+    diary = mv.diary
+
+    if not request.user.has_perm("diary.change_diarymovement"):
+        messages.error(request, "You do not have permission to edit movements.")
+        return redirect("diary_detail", pk=diary.pk)
+
+    if request.method == "POST":
+        form = MovementCreateForm(request.POST, instance=mv)
+        if form.is_valid():
+            form.save()
+            # Recompute diary snapshot from latest movement
+            latest = diary.movements.order_by("-action_datetime", "-id").first()
+            if latest:
+                diary.marked_to = latest.to_office
+                diary.marked_date = timezone.localtime(latest.action_datetime).date()
+                diary.status = latest.action_type
+            else:
+                diary.marked_to = ""
+                diary.marked_date = None
+                diary.status = Diary.Status.CREATED
+            diary.save(update_fields=["marked_to", "marked_date", "status"]) 
+
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return JsonResponse({"success": True})
+
+            messages.success(request, "Movement updated successfully.")
+            return redirect("diary_detail", pk=diary.pk)
+
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            html = render_to_string("diary/_movement_form.html", {"form": form, "diary": diary, "offices": Office.objects.values_list("name", flat=True).order_by("name"), "is_edit": True}, request=request)
+            return JsonResponse({"success": False, "html": html})
+
+        messages.error(request, "Please correct the errors below.")
+    else:
+        form = MovementCreateForm(instance=mv)
+
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            html = render_to_string("diary/_movement_form.html", {"form": form, "diary": diary, "offices": Office.objects.values_list("name", flat=True).order_by("name"), "is_edit": True}, request=request)
+            return JsonResponse({"success": True, "html": html})
+
+    return render(request, "diary/movement_edit.html", {"form": form, "diary": diary, "movement": mv, "offices": Office.objects.values_list("name", flat=True).order_by("name")})
+
+
+@login_required
+def movement_delete(request, pk: int):
+    """Delete a DiaryMovement. Requires `diary.delete_diarymovement` permission.
+
+    NOTE: To preserve diary integrity we prevent deleting the last remaining
+    movement for a diary; deleting the final movement would leave the diary in
+    an indeterminate state. Blocking is the safest approach.
+    """
+    mv = get_object_or_404(DiaryMovement, pk=pk)
+    diary = mv.diary
+
+    if not request.user.has_perm("diary.delete_diarymovement"):
+        messages.error(request, "You do not have permission to delete movements.")
+        return redirect("diary_detail", pk=diary.pk)
+
+    total = diary.movements.count()
+    if total <= 1:
+        messages.error(request, "Cannot delete the only movement for a diary.")
+        return redirect("diary_detail", pk=diary.pk)
+
+    if request.method == "POST":
+        mv.delete()
+        # Recompute diary snapshot from latest movement
+        latest = diary.movements.order_by("-action_datetime", "-id").first()
+        if latest:
+            diary.marked_to = latest.to_office
+            diary.marked_date = timezone.localtime(latest.action_datetime).date()
+            diary.status = latest.action_type
+        else:
+            diary.marked_to = ""
+            diary.marked_date = None
+            diary.status = Diary.Status.CREATED
+        diary.save(update_fields=["marked_to", "marked_date", "status"]) 
+
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse({"success": True})
+
+        messages.success(request, "Movement deleted.")
+        return redirect("diary_detail", pk=diary.pk)
+
+    return redirect("diary_detail", pk=diary.pk)
+
+
+@login_required
 def diary_edit(request, pk: int):
     """Edit an existing diary (admin only)."""
-    is_admin = request.user.is_superuser or request.user.groups.filter(name="admin").exists()
-    if not is_admin:
-        messages.error(request, "Only admins can edit diaries.")
+    if not request.user.has_perm("diary.change_diary"):
+        messages.error(request, "You do not have permission to edit this diary.")
         return redirect("diary_detail", pk=pk)
     
     diary = get_object_or_404(Diary, pk=pk)
     
     if request.method == "POST":
-        form = DiaryCreateForm(request.POST)
+        form = DiaryCreateForm(request.POST, instance=diary)
         if form.is_valid():
-            # Update diary fields from cleaned form data
+            # The form's clean() method has already set file_letter and service_included
+            # from the diary_type field, so we just need to save the mapped values
             diary.diary_date = form.cleaned_data["diary_date"]
             diary.received_diary_no = form.cleaned_data.get("received_diary_no", "")
             diary.received_from = form.cleaned_data.get("received_from", "")
             diary.file_letter = form.cleaned_data.get("file_letter", "")
+            diary.service_included = form.cleaned_data.get("service_included", False)
             diary.no_of_folders = form.cleaned_data.get("no_of_folders", 0)
             diary.subject = form.cleaned_data.get("subject", "")
             diary.remarks = form.cleaned_data.get("remarks", "")
@@ -262,16 +401,7 @@ def diary_edit(request, pk: int):
         else:
             messages.error(request, "Please correct the errors below.")
     else:
-        form = DiaryCreateForm(initial={
-            "diary_date": diary.diary_date,
-            "received_diary_no": diary.received_diary_no,
-            "received_from": diary.received_from,
-            "file_letter": diary.file_letter,
-            "no_of_folders": diary.no_of_folders,
-            "subject": diary.subject,
-            "remarks": diary.remarks,
-            "marked_to": diary.marked_to,
-        })
+        form = DiaryCreateForm(instance=diary)
     
     return render(request, "diary/diary_edit.html", {"form": form, "diary": diary})
 
@@ -279,9 +409,8 @@ def diary_edit(request, pk: int):
 @login_required
 def diary_delete(request, pk: int):
     """Delete a diary (admin only)."""
-    is_admin = request.user.is_superuser or request.user.groups.filter(name="admin").exists()
-    if not is_admin:
-        messages.error(request, "Only admins can delete diaries.")
+    if not request.user.has_perm("diary.delete_diary"):
+        messages.error(request, "You do not have permission to delete this diary.")
         return redirect("diary_detail", pk=pk)
     
     diary = get_object_or_404(Diary, pk=pk)
@@ -391,7 +520,7 @@ def reports_table(request):
                 "status": f_status,
                 "marked_to": f_marked_to,
             },
-            "can_view_sensitive": request.user.is_superuser or request.user.groups.filter(name="admin").exists(),
+            "can_view_sensitive": request.user.is_superuser,
         },
     )
 
@@ -403,9 +532,8 @@ def reports_pdf(request, year: int):
     Includes movement history with deduplication for cleaner register-style output.
     Adds page numbers and optional watermark branding.
     """
-    # Only admin group (or superusers) may download the PDF
-    is_admin = request.user.is_superuser or request.user.groups.filter(name="admin").exists()
-    if not is_admin:
+    # Restrict PDF download to superusers to avoid group-name checks here.
+    if not request.user.is_superuser:
         return HttpResponse(status=403)
 
     qs = (
@@ -413,7 +541,7 @@ def reports_pdf(request, year: int):
         .only(
             "id", "year", "sequence", "diary_date",
             "received_diary_no", "received_from",
-            "file_letter", "no_of_folders",
+            "file_letter", "no_of_folders", "service_included",
             "subject", "remarks", "status", "marked_to"
         )
         # Prefetch ordered movements to avoid per-diary queries in PDF generation
@@ -440,23 +568,70 @@ def reports_pdf(request, year: int):
     normal.fontSize = 8
     normal.leading = 10
 
-    title = Paragraph(f"<b>Diary Record of Administration Directorate year {year}</b>", styles["Title"])
-    story = []
+    # Better title style: centered, bold, larger
+    title_style = styles["Title"]
+    title_style.alignment = 1  # CENTER alignment
+    title_style.fontSize = 14
+    title_style.spaceAfter = 6
 
-    # Add logo on first page (left-aligned) using the same static image
+    # Build professional header with logo and title
+    story = []
+    
+    # Try to add logo
+    logo_img = None
     try:
         from pathlib import Path
         logo_path = Path(__file__).resolve().parent.parent / "static" / "diary" / "logo.png"
         if logo_path.exists():
-            # scale logo to fit left side without overlapping; keep height ~0.6 inch
-            logo = Image(str(logo_path), width=1.5 * inch, height=0.6 * inch)
-            logo.hAlign = "LEFT"
-            story.append(logo)
-            story.append(Spacer(1, 6))
+            logo_img = Image(str(logo_path), width=0.8 * inch, height=0.35 * inch)
     except Exception:
         pass
 
-    story.append(title)
+    # Create header table: logo on left, title in center
+    header_data = []
+    
+    # Get directorate name from config, or use generic title if not set
+    from .models import AppConfig
+    app_config = AppConfig.get_config()
+    directorate_name = app_config.directorate_name.strip() if app_config.directorate_name else ""
+    
+    if directorate_name:
+        title_text = f"<b>Diary Record of {directorate_name}<br/>Year {year}</b>"
+    else:
+        title_text = f"<b>Diary Record<br/>Year {year}</b>"
+    
+    if logo_img:
+        logo_cell = logo_img
+        title_para = Paragraph(title_text, title_style)
+        header_data.append([logo_cell, title_para])
+        header_table = Table(header_data, colWidths=[1.0 * inch, None])
+        header_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (1, 0), (1, 0), "CENTER"),
+            ("LEFTPADDING", (0, 0), (0, 0), 0),
+            ("RIGHTPADDING", (0, 0), (0, 0), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.append(header_table)
+    else:
+        # Fallback: title only (centered)
+        title_para = Paragraph(title_text, title_style)
+        story.append(title_para)
+    
+    # Add separator line for professional look
+    story.append(Spacer(1, 8))
+    from reportlab.platypus import PageBreak
+    # Use a simple horizontal line via a minimal table
+    sep_table = Table([["" ]], colWidths=[None])
+    sep_table.setStyle(TableStyle([
+        ("LINEBELOW", (0, 0), (-1, -1), 1, colors.grey),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    story.append(sep_table)
+    
+    # Clean spacing before table
     story.append(Spacer(1, 10))
 
     # PDF: omit Remarks and Status columns for a compact register-style export
@@ -477,8 +652,12 @@ def reports_pdf(request, year: int):
             prev_txt = None
             for mv in mvs:
                 dt = timezone.localtime(mv.action_datetime).date().strftime("%d-%m")
-                to_office = (mv.to_office or '-')
-                txt = f"{to_office} {dt}"
+                # Hide DEFAULT_OFFICE_NAME in PDF output only
+                if mv.to_office == settings.DEFAULT_OFFICE_NAME:
+                    to_office = ""
+                else:
+                    to_office = (mv.to_office or '-')
+                txt = f"{to_office} {dt}".strip()
                 if txt != prev_txt:
                     deduped.append(txt)
                     prev_txt = txt
@@ -486,14 +665,27 @@ def reports_pdf(request, year: int):
             history_text = " / ".join(deduped)
             history_flowable = Paragraph(history_text, normal)
 
-        # Folder display: only show number for File or Service Book, otherwise '-'
-        folders_display = str(d.no_of_folders) if (d.file_letter in ("File", "Service Book") and (d.no_of_folders or 0) > 0) else "-"
+        # Folder display: only show number for File, otherwise '-'
+        folders_display = str(d.no_of_folders) if (d.file_letter == "File" and (d.no_of_folders or 0) > 0) else "-"
+        # Hide DEFAULT_OFFICE_NAME in the "Rcvd From" column for PDF output only
+        if d.received_from == settings.DEFAULT_OFFICE_NAME:
+            received_from_pdf = ""
+        else:
+            received_from_pdf = (d.received_from or "-")
+
+        # Render File/Letter: include Service Book suffix in PDF output only
+        if d.file_letter == "File" and getattr(d, "service_included", False):
+            file_display_text = "File + Service Book"
+        else:
+            file_display_text = d.file_letter or "-"
+        file_display = Paragraph(file_display_text, normal)
+
         data.append([
             str(d.sequence),
             d.diary_date.strftime("%d-%m-%Y") if d.diary_date else "-",
-            d.received_diary_no or "-",
-            d.received_from or "-",
-            d.file_letter or "-",
+            Paragraph((d.received_diary_no or "-").replace("\n", "<br/>"), normal),
+            Paragraph((received_from_pdf).replace("\n", "<br/>"), normal),
+            file_display,
             folders_display,
             Paragraph((d.subject or "-").replace("\n", "<br/>"), normal),
             history_flowable,
@@ -637,7 +829,7 @@ def _build_pdf_data_for_year(year):
         .only(
             "id", "year", "sequence", "diary_date",
             "received_diary_no", "received_from",
-            "file_letter", "no_of_folders",
+            "file_letter", "no_of_folders", "service_included",
             "subject", "remarks", "status", "marked_to"
         )
         .prefetch_related(Prefetch("movements", queryset=DiaryMovement.objects.order_by("action_datetime", "id")))
@@ -674,13 +866,20 @@ def _build_pdf_data_for_year(year):
             
             history_text = " / ".join(deduped)
 
-        folders_display = str(d.no_of_folders) if (d.file_letter in ("File", "Service Book") and (d.no_of_folders or 0) > 0) else "-"
+        folders_display = str(d.no_of_folders) if (d.file_letter == "File" and (d.no_of_folders or 0) > 0) else "-"
+        # Render File/Letter for helper output (include service flag in PDF helper)
+        if d.file_letter == "File" and getattr(d, "service_included", False):
+            file_display_text = "File + Service Book"
+        else:
+            file_display_text = d.file_letter or "-"
+        file_display = Paragraph(file_display_text, normal)
+
         data.append([
             str(d.sequence),
             d.diary_date.strftime("%d-%m-%Y") if d.diary_date else "-",
-            d.received_diary_no or "-",
-            d.received_from or "-",
-            d.file_letter or "-",
+            Paragraph((d.received_diary_no or "-").replace("\n", "<br/>"), normal),
+            Paragraph((d.received_from or "-").replace("\n", "<br/>"), normal),
+            file_display,
             folders_display,
             Paragraph((d.subject or "-").replace("\n", "<br/>"), normal),
             Paragraph(history_text, normal),
@@ -721,7 +920,7 @@ def _csv_rows_for_year(year):
             
             history = " / ".join(deduped)
 
-        folders_display = str(d.no_of_folders) if (d.file_letter in ("File", "Service Book") and (d.no_of_folders or 0) > 0) else "-"
+        folders_display = str(d.no_of_folders) if (d.file_letter == "File" and (d.no_of_folders or 0) > 0) else "-"
         yield [
             d.diary_no_short,
             str(d.diary_date),
@@ -779,12 +978,15 @@ def diary_year_report(request, year: int):
 def dashboard(request):
     """Dashboard main page showing month-wise counts for the current year and quick actions."""
     # ---- create (modal POST) ----
-    is_admin = request.user.is_superuser or request.user.groups.filter(name="admin").exists()
+    is_admin = request.user.is_superuser
     create_form = DiaryCreateForm()
     if request.method == "POST":
         create_form = DiaryCreateForm(request.POST)
         if create_form.is_valid():
-            diary = create_diary_with_movement(dict(create_form.cleaned_data), request.user)
+            # Extract cleaned data and remove diary_type (not a model field)
+            diary_data = dict(create_form.cleaned_data)
+            diary_data.pop("diary_type", None)
+            diary = create_diary_with_movement(diary_data, request.user)
             messages.success(request, f"Diary created: {diary.diary_no}")
             return redirect("diary_detail", pk=diary.pk)
 

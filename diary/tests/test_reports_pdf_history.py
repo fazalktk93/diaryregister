@@ -49,3 +49,6 @@ class ReportsPdfHistoryTests(TestCase):
         text = hist_para.getPlainText()
         self.assertIn("OFFICE_PDF_B", text)
         self.assertIn("OFFICE_PDF_C", text)
+        # Header rename: ensure column label is 'Movement'
+        header = data[0]
+        self.assertEqual(header[-1], "Movement")

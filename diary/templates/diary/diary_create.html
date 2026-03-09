@@ -17,18 +17,20 @@
           {% csrf_token %}
 
           {% for field in form %}
-            <div class="mb-3">
-              <label for="{{ field.id_for_label }}" class="form-label">
-                {{ field.label }}
-                {% if field.field.required %}<span class="text-danger" aria-label="required">*</span>{% endif %}
-              </label>
-              {{ field }}
-              {% if field.errors %}
-                <div class="alert alert-danger mt-1 py-1 px-2 small mb-0">
-                  <i class="bi bi-exclamation-circle"></i> {{ field.errors|striptags }}
-                </div>
-              {% endif %}
-            </div>
+            {% if field.name != 'file_letter' and field.name != 'service_included' %}
+              <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">
+                  {{ field.label }}
+                  {% if field.field.required %}<span class="text-danger" aria-label="required">*</span>{% endif %}
+                </label>
+                {{ field }}
+                {% if field.errors %}
+                  <div class="alert alert-danger mt-1 py-1 px-2 small mb-0">
+                    <i class="bi bi-exclamation-circle"></i> {{ field.errors|striptags }}
+                  </div>
+                {% endif %}
+              </div>
+            {% endif %}
           {% endfor %}
 
           <div class="d-flex gap-2 mt-4">
@@ -46,21 +48,21 @@
 </div>
 
 <script>
-  // Enable "No. of folders" only when File is selected
+  // Enable "No. of folders" for File and File + Service Book types
   document.addEventListener("DOMContentLoaded", function () {
-    const kind = document.getElementById("id_file_letter");
+    const typeField = document.getElementById("id_diary_type");
     const folders = document.getElementById("id_no_of_folders");
-    if (!kind || !folders) return;
+    if (!typeField || !folders) return;
 
     function syncFoldersState() {
-      const v = (kind.value || "").toLowerCase();
-      const enabled = v === "file" || v === "service book";
+      const v = (typeField.value || "").toLowerCase();
+      const enabled = v === "file" || v === "file_service";
       folders.disabled = !enabled;
       folders.closest('.mb-3')?.classList.toggle('opacity-50', !enabled);
       if (!enabled) folders.value = 0;
     }
 
-    kind.addEventListener("change", syncFoldersState);
+    typeField.addEventListener("change", syncFoldersState);
     syncFoldersState();
   });
 </script>

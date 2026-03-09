@@ -23,7 +23,11 @@
   {% endfor %}
 
   <div class="d-flex gap-2 mt-4">
-    <button class="btn btn-success" type="submit"><i class="bi bi-plus-circle"></i> Add Movement</button>
+    {% if is_edit %}
+      <button class="btn btn-primary" type="submit"><i class="bi bi-check-circle"></i> Save Changes</button>
+    {% else %}
+      <button class="btn btn-success" type="submit"><i class="bi bi-plus-circle"></i> Add Movement</button>
+    {% endif %}
     <button type="button" class="btn btn-danger" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancel</button>
   </div>
 </form>

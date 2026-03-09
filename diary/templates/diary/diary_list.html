@@ -101,7 +101,9 @@
             <td>{{ d.received_diary_no|default:"—" }}</td>
             <td>{{ d.received_from|default:"—" }}</td>
             <td>
-              {% if d.file_letter %}
+              {% if d.file_letter == "File" and d.service_included %}
+                <span class="badge bg-primary">File + Service Book</span>
+              {% elif d.file_letter %}
                 <span class="badge {% if d.file_letter == 'File' %}bg-primary{% else %}bg-info{% endif %}">{{ d.file_letter }}</span>
               {% else %}
                 <span class="badge bg-secondary">—</span>
@@ -127,15 +129,20 @@
               {% else %}
                 <span class="badge bg-secondary">{{ d.status }}</span>
               {% endif %}
+              {% if d.current_remarks %}
+                <div class="small text-muted mt-1 text-truncate" style="max-width:220px;" title="{{ d.current_remarks }}">{{ d.current_remarks|truncatechars:80 }}</div>
+              {% endif %}
             </td>
             <td>{{ d.marked_to|default:"—" }}</td>
             <td class="text-center">
               <a class="btn btn-sm btn-info rounded me-2" href="{% url 'diary_detail' d.pk %}" aria-label="Open diary {{ d.diary_no }}">
                 <i class="bi bi-eye"></i> View
               </a>
-              <button type="button" class="btn btn-sm btn-success rounded movement-btn" data-url="{% url 'movement_add' d.pk %}" data-pk="{{ d.pk }}" aria-label="Add movement for diary {{ d.diary_no }}">
-                <i class="bi bi-arrow-repeat"></i> Movement
-              </button>
+              {% if can_add_movement %}
+                <button type="button" class="btn btn-sm btn-success rounded movement-btn" data-url="{% url 'movement_add' d.pk %}" data-pk="{{ d.pk }}" aria-label="Add movement for diary {{ d.diary_no }}">
+                  <i class="bi bi-arrow-repeat"></i> Movement
+                </button>
+              {% endif %}
             </td>
           </tr>
         {% empty %}
@@ -192,12 +199,12 @@
 <!-- ========== New Diary Modal ========== -->
 <div class="modal fade" id="newDiaryModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
-    <div class="modal-content">
+    <div class="modal-content" style="border-radius: 12px;">
       <form method="post" novalidate>
         {% csrf_token %}
-        <div class="modal-header">
+        <div class="modal-header bg-dark text-white" style="border-radius: 12px 12px 0 0;">
           <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Create New Diary</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
 
         <div class="modal-body">
@@ -238,10 +245,10 @@
               </div>
 
               <div class="col-md-4">
-                <label for="{{ create_form.file_letter.id_for_label }}" class="form-label">{{ create_form.file_letter.label }}</label>
-                {{ create_form.file_letter }}
-                {% if create_form.file_letter.errors %}
-                  <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ create_form.file_letter.errors|striptags }}</div>
+                <label for="{{ create_form.diary_type.id_for_label }}" class="form-label">{{ create_form.diary_type.label }}</label>
+                {{ create_form.diary_type }}
+                {% if create_form.diary_type.errors %}
+                  <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ create_form.diary_type.errors|striptags }}</div>
                 {% endif %}
               </div>
 
@@ -271,20 +278,16 @@
             </div>
 
             {% if create_form.non_field_errors %}
-              <div class="alert alert-danger mt-3 mb-0">
-                <i class="bi bi-exclamation-triangle"></i> {{ create_form.non_field_errors }}
-              </div>
+              <div class="alert alert-danger mt-3 mb-0">{{ create_form.non_field_errors }}</div>
             {% endif %}
           {% else %}
-            <div class="alert alert-info mb-0">
-              <i class="bi bi-info-circle"></i> Create form not provided.
-            </div>
+            <div class="alert alert-info mb-0">Create form not provided.</div>
           {% endif %}
         </div>
 
         <div class="modal-footer">
           <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
-          <button class="btn btn-primary"><i class="bi bi-plus-circle"></i> Create Diary</button>
+          <button type="submit" class="btn btn-primary fw-bold">Create Diary</button>
         </div>
       </form>
     </div>
@@ -292,25 +295,25 @@
 </div>
 
 <script>
-  // Enable "No. of folders" only when File is selected
+  // Enable "No. of folders" for File and File + Service Book types
   document.addEventListener("DOMContentLoaded", function () {
-    const kind = document.getElementById("id_file_letter");
+    const typeField = document.getElementById("id_diary_type");
     const folders = document.getElementById("id_no_of_folders");
 
     function syncFoldersState() {
-      if (!kind || !folders) return;
-      const val = (kind.value || "").toLowerCase();
-      const isFile = val === "file" || val === "service book";
-      folders.disabled = !isFile;
+      if (!typeField || !folders) return;
+      const val = (typeField.value || "").toLowerCase();
+      const shouldEnable = val === "file" || val === "file_service";
+      folders.disabled = !shouldEnable;
 
       const wrap = folders.closest(".col-md-4") || folders.closest(".mb-3");
-      if (wrap) wrap.classList.toggle("opacity-50", !isFile);
+      if (wrap) wrap.classList.toggle("opacity-50", !shouldEnable);
 
-      if (!isFile) folders.value = 0;
+      if (!shouldEnable) folders.value = 0;
     }
 
-    if (kind && folders) {
-      kind.addEventListener("change", syncFoldersState);
+    if (typeField && folders) {
+      typeField.addEventListener("change", syncFoldersState);
       syncFoldersState();
     }
 
@@ -391,6 +394,33 @@
         });
       });
     }
+  });
+</script>
+
+<script>
+  // New diary modal: show service_included only for File and enable folders only for File
+  document.addEventListener("DOMContentLoaded", function () {
+    const kind = document.getElementById("id_file_letter");
+    const folders = document.getElementById("id_no_of_folders");
+    if (!kind || !folders) return;
+
+    function syncFoldersState() {
+      const v = (kind.value || "").toLowerCase();
+      const enabled = v === "file";
+      folders.disabled = !enabled;
+      folders.closest('.mb-3')?.classList.toggle('opacity-50', !enabled);
+      if (!enabled) folders.value = 0;
+
+      const serviceEl = document.getElementById('id_service_included');
+      if (serviceEl) {
+        const wrap = serviceEl.closest('.mb-3') || serviceEl.closest('.row') || serviceEl.parentElement;
+        if (wrap) wrap.style.display = enabled ? '' : 'none';
+        if (!enabled) serviceEl.checked = false;
+      }
+    }
+
+    kind.addEventListener("change", syncFoldersState);
+    syncFoldersState();
   });
 </script>
 

@@ -12,22 +12,22 @@ BOOTSTRAP_SELECT_CLASS = "form-select"
 
 
 class DiaryCreateForm(forms.ModelForm):
-    FILE_LETTER_CHOICES = (
-        ("File", "File"),
-        ("Letter", "Letter"),
-        ("Service Book", "Service Book"),
-        ("Application", "Application"),
+    DIARY_TYPE_CHOICES = (
+        ("file", "File"),
+        ("file_service", "File + Service Book"),
+        ("letter", "Letter"),
     )
 
     # Override diary_date to use timezone.localdate as default
     diary_date = forms.DateField(initial=timezone.localdate, required=True)
 
-    # Dropdown (File / Letter)
-    file_letter = forms.ChoiceField(
-        choices=FILE_LETTER_CHOICES,
+    # New 3-option type field that maps to file_letter and service_included
+    diary_type = forms.ChoiceField(
+        choices=DIARY_TYPE_CHOICES,
         widget=forms.Select(attrs={"class": BOOTSTRAP_SELECT_CLASS}),
         required=True,
-        initial="Letter",
+        initial="letter",
+        label="Diary Type",
     )
 
     class Meta:
@@ -36,7 +36,6 @@ class DiaryCreateForm(forms.ModelForm):
             "diary_date",
             "received_diary_no",
             "received_from",
-            "file_letter",
             "no_of_folders",
             "subject",
             "marked_to",
@@ -46,7 +45,6 @@ class DiaryCreateForm(forms.ModelForm):
             "diary_date": forms.DateInput(attrs={"type": "date", "class": BOOTSTRAP_INPUT_CLASS}),
             "received_diary_no": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS, "placeholder": "e.g. REF-2026-001"}),
             "received_from": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS, "placeholder": "Office or sender name"}),
-            "file_letter": forms.Select(attrs={"class": BOOTSTRAP_SELECT_CLASS}),
             "marked_to": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS, "placeholder": "Destination office"}),
             "no_of_folders": forms.NumberInput(attrs={"class": "form-control", "min": 0, "inputmode": "numeric"}),
             "subject": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 2, "placeholder": "Diary subject or description"}),
@@ -61,18 +59,32 @@ class DiaryCreateForm(forms.ModelForm):
         widget=forms.NumberInput(attrs={"class": "form-control", "min": 0, "inputmode": "numeric"}),
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # If editing an existing diary, compute diary_type from file_letter and service_included
+        if self.instance and self.instance.pk:
+            file_letter = self.instance.file_letter or ""
+            service_included = getattr(self.instance, "service_included", False)
+            
+            if file_letter == "File" and service_included:
+                self.fields["diary_type"].initial = "file_service"
+            elif file_letter == "File":
+                self.fields["diary_type"].initial = "file"
+            elif file_letter == "Letter":
+                self.fields["diary_type"].initial = "letter"
+
     def clean(self):
         cleaned = super().clean()
-        kind = (cleaned.get("file_letter") or "").strip()
+        diary_type = (cleaned.get("diary_type") or "").strip()
         folders = cleaned.get("no_of_folders")
-        # For types that don't use folders, clear it
-        if kind in ("Letter", "Application"):
-            cleaned["no_of_folders"] = 0
-
-        elif kind in ("File", "Service Book"):
-            # For File and Service Book, folders required and must be >= 1
+        
+        # Map diary_type back to file_letter and service_included
+        if diary_type == "file":
+            cleaned["file_letter"] = "File"
+            cleaned["service_included"] = False
+            # For File, folders required and must be >= 1
             if folders in (None, ""):
-                self.add_error("no_of_folders", "No. of folders is required for File/Service Book.")
+                self.add_error("no_of_folders", "No. of folders is required for File.")
             else:
                 try:
                     folders_int = int(folders)
@@ -80,9 +92,30 @@ class DiaryCreateForm(forms.ModelForm):
                     self.add_error("no_of_folders", "Enter a valid number.")
                 else:
                     if folders_int < 1:
-                        self.add_error("no_of_folders", "Must be 1 or more for File/Service Book.")
+                        self.add_error("no_of_folders", "Must be 1 or more for File.")
+        
+        elif diary_type == "file_service":
+            cleaned["file_letter"] = "File"
+            cleaned["service_included"] = True
+            # For File + Service Book, folders required and must be >= 1
+            if folders in (None, ""):
+                self.add_error("no_of_folders", "No. of folders is required for File + Service Book.")
+            else:
+                try:
+                    folders_int = int(folders)
+                except (TypeError, ValueError):
+                    self.add_error("no_of_folders", "Enter a valid number.")
+                else:
+                    if folders_int < 1:
+                        self.add_error("no_of_folders", "Must be 1 or more for File + Service Book.")
+        
+        elif diary_type == "letter":
+            cleaned["file_letter"] = "Letter"
+            cleaned["service_included"] = False
+            cleaned["no_of_folders"] = 0
+        
         else:
-            self.add_error("file_letter", "Please select a valid type.")
+            self.add_error("diary_type", "Please select a valid type.")
 
         return cleaned
 
