@@ -60,11 +60,21 @@
           </div>
           <div>
             <small class="text-muted d-block mb-1">File Type</small>
-            <span class="badge {% if diary.file_letter == 'File' %}bg-primary{% else %}bg-info{% endif %}">{{ diary.file_letter|default:"—" }}</span>
+            {% if diary.file_letter == "File" and diary.service_included %}
+              <span class="badge bg-primary">File + Service Book</span>
+            {% elif diary.file_letter %}
+              <span class="badge {% if diary.file_letter == 'File' %}bg-primary{% else %}bg-info{% endif %}">{{ diary.file_letter }}</span>
+            {% else %}
+              <span class="badge bg-secondary">—</span>
+            {% endif %}
           </div>
           <div>
             <small class="text-muted d-block mb-1">Folders</small>
-            <strong>{{ diary.no_of_folders|default:"—" }}</strong>
+            {% if diary.file_letter == "File" %}
+              <strong>{{ diary.no_of_folders }}</strong>
+            {% else %}
+              <strong>—</strong>
+            {% endif %}
           </div>
           <div>
             <small class="text-muted d-block mb-1">Received From</small>

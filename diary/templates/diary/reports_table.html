@@ -106,7 +106,9 @@
             <td>{{ d.received_diary_no|default:"—" }}</td>
             <td><small>{{ d.received_from|cut:"Registry"|default_if_none:"" }}</small></td>
             <td>
-              {% if d.file_letter %}
+              {% if d.file_letter == "File" and d.service_included %}
+                <span class="badge bg-primary">File + Service Book</span>
+              {% elif d.file_letter %}
                 <span class="badge {% if d.file_letter == 'File' %}bg-primary{% else %}bg-info{% endif %}">{{ d.file_letter }}</span>
               {% else %}
                 <span class="text-muted">—</span>

@@ -233,3 +233,48 @@ class DiaryMovement(models.Model):
             Office.objects.get_or_create(name=self.to_office.strip())
 
         super().save(*args, **kwargs)
+
+
+class AppConfig(models.Model):
+    """
+    Singleton model to store deployment-specific configuration.
+    Only one instance should exist.
+    """
+    directorate_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Name of the directorate for PDF reports. If blank, reports will use generic title."
+    )
+    port = models.PositiveIntegerField(
+        default=8000,
+        help_text="Port number for the Django application."
+    )
+    host = models.CharField(
+        max_length=255,
+        default="0.0.0.0",
+        help_text="Host/IP address to bind the application to."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "App Configuration"
+        verbose_name_plural = "App Configuration"
+
+    def save(self, *args, **kwargs):
+        # Enforce singleton
+        if self.pk is None and AppConfig.objects.exists():
+            # Update the existing record instead
+            existing = AppConfig.objects.first()
+            self.pk = existing.pk
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"App Config - Directorate: {self.directorate_name or '(not set)'}"
+
+    @classmethod
+    def get_config(cls):
+        """Get or create the singleton config instance."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

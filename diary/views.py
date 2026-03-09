@@ -78,7 +78,10 @@ def diary_list(request):
     if request.method == "POST":
         create_form = DiaryCreateForm(request.POST)
         if create_form.is_valid():
-            diary = create_diary_with_movement(dict(create_form.cleaned_data), request.user)
+            # Extract cleaned data and remove diary_type (not a model field)
+            diary_data = dict(create_form.cleaned_data)
+            diary_data.pop("diary_type", None)
+            diary = create_diary_with_movement(diary_data, request.user)
             messages.success(request, f"Diary created: {diary.diary_no}")
             # Stay on the listing page after create; preserve any query params
             qs = request.GET.urlencode()
@@ -158,7 +161,10 @@ def diary_create(request):
     if request.method == "POST":
         form = DiaryCreateForm(request.POST)
         if form.is_valid():
-            diary = create_diary_with_movement(dict(form.cleaned_data), request.user)
+            # Extract cleaned data and remove diary_type (not a model field)
+            diary_data = dict(form.cleaned_data)
+            diary_data.pop("diary_type", None)
+            diary = create_diary_with_movement(diary_data, request.user)
             messages.success(request, f"Diary created: {diary.diary_no}")
             # After creation when coming from a create page, return to listing
             return redirect("diary_list")
@@ -375,9 +381,10 @@ def diary_edit(request, pk: int):
     diary = get_object_or_404(Diary, pk=pk)
     
     if request.method == "POST":
-        form = DiaryCreateForm(request.POST)
+        form = DiaryCreateForm(request.POST, instance=diary)
         if form.is_valid():
-            # Update diary fields from cleaned form data
+            # The form's clean() method has already set file_letter and service_included
+            # from the diary_type field, so we just need to save the mapped values
             diary.diary_date = form.cleaned_data["diary_date"]
             diary.received_diary_no = form.cleaned_data.get("received_diary_no", "")
             diary.received_from = form.cleaned_data.get("received_from", "")
@@ -394,17 +401,7 @@ def diary_edit(request, pk: int):
         else:
             messages.error(request, "Please correct the errors below.")
     else:
-        form = DiaryCreateForm(initial={
-            "diary_date": diary.diary_date,
-            "received_diary_no": diary.received_diary_no,
-            "received_from": diary.received_from,
-            "file_letter": diary.file_letter,
-            "service_included": getattr(diary, "service_included", False),
-            "no_of_folders": diary.no_of_folders,
-            "subject": diary.subject,
-            "remarks": diary.remarks,
-            "marked_to": diary.marked_to,
-        })
+        form = DiaryCreateForm(instance=diary)
     
     return render(request, "diary/diary_edit.html", {"form": form, "diary": diary})
 
@@ -571,23 +568,70 @@ def reports_pdf(request, year: int):
     normal.fontSize = 8
     normal.leading = 10
 
-    title = Paragraph(f"<b>Diary Record of Administration Directorate year {year}</b>", styles["Title"])
-    story = []
+    # Better title style: centered, bold, larger
+    title_style = styles["Title"]
+    title_style.alignment = 1  # CENTER alignment
+    title_style.fontSize = 14
+    title_style.spaceAfter = 6
 
-    # Add logo on first page (left-aligned) using the same static image
+    # Build professional header with logo and title
+    story = []
+    
+    # Try to add logo
+    logo_img = None
     try:
         from pathlib import Path
         logo_path = Path(__file__).resolve().parent.parent / "static" / "diary" / "logo.png"
         if logo_path.exists():
-            # scale logo to fit left side without overlapping; keep height ~0.6 inch
-            logo = Image(str(logo_path), width=1.5 * inch, height=0.6 * inch)
-            logo.hAlign = "LEFT"
-            story.append(logo)
-            story.append(Spacer(1, 6))
+            logo_img = Image(str(logo_path), width=0.8 * inch, height=0.35 * inch)
     except Exception:
         pass
 
-    story.append(title)
+    # Create header table: logo on left, title in center
+    header_data = []
+    
+    # Get directorate name from config, or use generic title if not set
+    from .models import AppConfig
+    app_config = AppConfig.get_config()
+    directorate_name = app_config.directorate_name.strip() if app_config.directorate_name else ""
+    
+    if directorate_name:
+        title_text = f"<b>Diary Record of {directorate_name}<br/>Year {year}</b>"
+    else:
+        title_text = f"<b>Diary Record<br/>Year {year}</b>"
+    
+    if logo_img:
+        logo_cell = logo_img
+        title_para = Paragraph(title_text, title_style)
+        header_data.append([logo_cell, title_para])
+        header_table = Table(header_data, colWidths=[1.0 * inch, None])
+        header_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (1, 0), (1, 0), "CENTER"),
+            ("LEFTPADDING", (0, 0), (0, 0), 0),
+            ("RIGHTPADDING", (0, 0), (0, 0), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.append(header_table)
+    else:
+        # Fallback: title only (centered)
+        title_para = Paragraph(title_text, title_style)
+        story.append(title_para)
+    
+    # Add separator line for professional look
+    story.append(Spacer(1, 8))
+    from reportlab.platypus import PageBreak
+    # Use a simple horizontal line via a minimal table
+    sep_table = Table([["" ]], colWidths=[None])
+    sep_table.setStyle(TableStyle([
+        ("LINEBELOW", (0, 0), (-1, -1), 1, colors.grey),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    story.append(sep_table)
+    
+    # Clean spacing before table
     story.append(Spacer(1, 10))
 
     # PDF: omit Remarks and Status columns for a compact register-style export
@@ -631,7 +675,7 @@ def reports_pdf(request, year: int):
 
         # Render File/Letter: include Service Book suffix in PDF output only
         if d.file_letter == "File" and getattr(d, "service_included", False):
-            file_display_text = "File (Service Book Included)"
+            file_display_text = "File + Service Book"
         else:
             file_display_text = d.file_letter or "-"
         file_display = Paragraph(file_display_text, normal)
@@ -825,7 +869,7 @@ def _build_pdf_data_for_year(year):
         folders_display = str(d.no_of_folders) if (d.file_letter == "File" and (d.no_of_folders or 0) > 0) else "-"
         # Render File/Letter for helper output (include service flag in PDF helper)
         if d.file_letter == "File" and getattr(d, "service_included", False):
-            file_display_text = "File (Service Book Included)"
+            file_display_text = "File + Service Book"
         else:
             file_display_text = d.file_letter or "-"
         file_display = Paragraph(file_display_text, normal)
@@ -876,7 +920,7 @@ def _csv_rows_for_year(year):
             
             history = " / ".join(deduped)
 
-        folders_display = str(d.no_of_folders) if (d.file_letter in ("File", "Service Book") and (d.no_of_folders or 0) > 0) else "-"
+        folders_display = str(d.no_of_folders) if (d.file_letter == "File" and (d.no_of_folders or 0) > 0) else "-"
         yield [
             d.diary_no_short,
             str(d.diary_date),
@@ -939,7 +983,10 @@ def dashboard(request):
     if request.method == "POST":
         create_form = DiaryCreateForm(request.POST)
         if create_form.is_valid():
-            diary = create_diary_with_movement(dict(create_form.cleaned_data), request.user)
+            # Extract cleaned data and remove diary_type (not a model field)
+            diary_data = dict(create_form.cleaned_data)
+            diary_data.pop("diary_type", None)
+            diary = create_diary_with_movement(diary_data, request.user)
             messages.success(request, f"Diary created: {diary.diary_no}")
             return redirect("diary_detail", pk=diary.pk)
 
