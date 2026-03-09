@@ -102,7 +102,7 @@
             <td>{{ d.received_from|default:"—" }}</td>
             <td>
               {% if d.file_letter == "File" and d.service_included %}
-                <span class="badge bg-primary">File + Service Book</span>
+                <span class="badge bg-danger">File + Service Book</span>
               {% elif d.file_letter %}
                 <span class="badge {% if d.file_letter == 'File' %}bg-primary{% else %}bg-info{% endif %}">{{ d.file_letter }}</span>
               {% else %}
