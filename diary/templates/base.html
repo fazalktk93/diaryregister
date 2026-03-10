@@ -527,5 +527,49 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Hidden logout form for inactivity timeout -->
+  <form id="logoutForm" method="post" action="{% url 'logout' %}" style="display: none;">
+    {% csrf_token %}
+  </form>
+
+  <!-- Automatic logout on inactivity (30 minutes) -->
+  <script>
+    (function() {
+      const INACTIVITY_TIMEOUT = 1800000; // 30 minutes in milliseconds
+      let inactivityTimer;
+
+      // Function to reset the inactivity timer
+      function resetInactivityTimer() {
+        // Clear existing timer if any
+        if (inactivityTimer) {
+          clearTimeout(inactivityTimer);
+        }
+
+        // Set new timer for logout
+        inactivityTimer = setTimeout(function() {
+          // Show alert before logging out
+          alert('Session expired due to inactivity. Logging out...');
+          
+          // Submit the logout form
+          const logoutForm = document.getElementById('logoutForm');
+          if (logoutForm) {
+            logoutForm.submit();
+          }
+        }, INACTIVITY_TIMEOUT);
+      }
+
+      // List of events that indicate user activity
+      const activityEvents = ['mousemove', 'keypress', 'click', 'scroll', 'touchstart'];
+
+      // Add event listeners for user activity
+      activityEvents.forEach(function(event) {
+        document.addEventListener(event, resetInactivityTimer, true);
+      });
+
+      // Initialize the timer on page load
+      resetInactivityTimer();
+    })();
+  </script>
 </body>
 </html>
