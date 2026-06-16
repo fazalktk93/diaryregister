@@ -136,7 +136,7 @@
             <td>
               <div>{{ d.marked_to|default:"—" }}</div>
               {% if d.last_movement_dt %}
-                <small class="text-muted">{{ d.last_movement_dt|date:"M d, Y" }}</small>
+                <small class="text-muted">{{ d.last_movement_dt|date:"M d, Y h:i A" }}</small>
               {% endif %}
             </td>
             <td class="text-center">

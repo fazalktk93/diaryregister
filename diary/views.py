@@ -505,24 +505,47 @@ def reports_table(request):
     # Parse date filters and apply inclusive filtering on diary_date
     parsed_from = parse_date(f_date_from) if f_date_from else None
     parsed_to = parse_date(f_date_to) if f_date_to else None
+    # Accept common user-entered formats (dd-mm-yyyy or dd/mm/yyyy) as a fallback
+    if f_date_from and not parsed_from:
+        import datetime as _dt
+        for _fmt in ("%d-%m-%Y", "%d/%m/%Y"):
+            try:
+                parsed_from = _dt.datetime.strptime(f_date_from, _fmt).date()
+                break
+            except Exception:
+                parsed_from = parsed_from
+    if f_date_to and not parsed_to:
+        import datetime as _dt
+        for _fmt in ("%d-%m-%Y", "%d/%m/%Y"):
+            try:
+                parsed_to = _dt.datetime.strptime(f_date_to, _fmt).date()
+                break
+            except Exception:
+                parsed_to = parsed_to
     if parsed_from and parsed_to:
         qs = qs.filter(diary_date__range=(parsed_from, parsed_to))
     elif parsed_from:
         qs = qs.filter(diary_date__gte=parsed_from)
     elif parsed_to:
         qs = qs.filter(diary_date__lte=parsed_to)
-    # diary_no supports "2026-000012" or "2026-12" etc.
+
+    # If a diary_no filter is provided, also filter by diary number (supports padded and short forms)
     if f_diary_no:
         m = DIARYNO_RE.match(f_diary_no)
         if m:
             y = int(m.group(1))
             s = int(m.group(2))
             qs = qs.filter(year=y, sequence=s)
+        elif f_diary_no.isdigit():
+            # numeric sequence (e.g. 12 or 000012) — match sequence field (within date range if provided)
+            try:
+                seq = int(f_diary_no)
+                qs = qs.filter(sequence=seq)
+            except Exception:
+                pass
         else:
-            # fallback search
-            qs = qs.filter(
-                Q(year__icontains=f_diary_no) | Q(sequence__icontains=f_diary_no)
-            )
+            # fallback: search year or received fields
+            qs = qs.filter(Q(year__icontains=f_diary_no) | Q(received_diary_no__icontains=f_diary_no) | Q(received_from__icontains=f_diary_no))
 
     if f_received_diary_no:
         qs = qs.filter(received_diary_no__icontains=f_received_diary_no)
@@ -605,6 +628,10 @@ def reports_pdf(request, year: int):
     if not request.user.has_perm("diary.view_diary"):
         return HttpResponse(status=403)
 
+    # Apply optional date filters from reports UI so PDF mirrors table filters
+    f_date_from = (request.GET.get("date_from") or "").strip()
+    f_date_to = (request.GET.get("date_to") or "").strip()
+
     qs = (
         Diary.objects.filter(year=year)
         .only(
@@ -618,6 +645,17 @@ def reports_pdf(request, year: int):
         .exclude(sequence=0)
         .order_by("sequence")
     )
+
+    # Parse and apply date_from/date_to to diary_date (inclusive)
+    from django.utils.dateparse import parse_date
+    parsed_from = parse_date(f_date_from) if f_date_from else None
+    parsed_to = parse_date(f_date_to) if f_date_to else None
+    if parsed_from and parsed_to:
+        qs = qs.filter(diary_date__range=(parsed_from, parsed_to))
+    elif parsed_from:
+        qs = qs.filter(diary_date__gte=parsed_from)
+    elif parsed_to:
+        qs = qs.filter(diary_date__lte=parsed_to)
 
     buf = io.BytesIO()
     # Use an 'oficio' like page size (8.5 x 13 in) in landscape to give more width
@@ -922,17 +960,21 @@ def _build_pdf_data_for_year(year):
         if not mvs:
             history_text = "-"
         else:
-            # Deduplicate consecutive entries
+            # Deduplicate consecutive entries and include full localized datetime
             deduped = []
             prev_txt = None
             for mv in mvs:
-                dt = timezone.localtime(mv.action_datetime).date().strftime("%d-%m")
+                try:
+                    dt_obj = timezone.localtime(mv.action_datetime)
+                    dt = dt_obj.strftime("%b %d, %Y %I:%M %p")
+                except Exception:
+                    dt = (mv.action_datetime.date().strftime("%d-%m")) if mv.action_datetime else "-"
                 to_office = (mv.to_office or '-')
                 txt = f"{to_office} {dt}"
                 if txt != prev_txt:
                     deduped.append(txt)
                     prev_txt = txt
-            
+
             history_text = " / ".join(deduped)
 
         folders_display = str(d.no_of_folders) if (d.file_letter == "File" and (d.no_of_folders or 0) > 0) else "-"
@@ -945,7 +987,7 @@ def _build_pdf_data_for_year(year):
 
         data.append([
             str(d.sequence),
-            d.diary_date.strftime("%d-%m-%Y") if d.diary_date else "-",
+            d.diary_date.strftime("%b %d, %Y") if d.diary_date else "-",
             Paragraph((d.received_diary_no or "-").replace("\n", "<br/>"), normal),
             Paragraph((d.received_from or "-").replace("\n", "<br/>"), normal),
             file_display,

@@ -108,9 +108,9 @@
           <tr role="row">
             <td>
               <a href="{% url 'diary_detail' d.id %}" class="fw-bold text-decoration-none">{{ d.diary_no_short }}</a>
-            </td>
             <td>
-              <small class="text-muted">{{ d.diary_date|date:"M d, Y" }}</small>
+              <small class="text-muted d-block">{{ d.diary_date|date:"M d, Y" }}</small>
+            </td>
             </td>
             <td>{{ d.received_diary_no|default:"—" }}</td>
             <td><small>{{ d.received_from|cut:"Registry"|default_if_none:"" }}</small></td>
@@ -153,7 +153,7 @@
             <td>
               <small>{{ d.marked_to|cut:"Registry"|default_if_none:"" }}</small>
               {% if d.last_movement_dt %}
-                <div class="small text-muted">{{ d.last_movement_dt|date:"M d, Y" }}</div>
+                <div class="small text-muted">{{ d.last_movement_dt|date:"M d, Y h:i A" }}</div>
               {% endif %}
             </td>
           </tr>
@@ -199,18 +199,29 @@
 <script>
   (function () {
     const btn = document.getElementById("btnPdfLocal");
-    if (!btn) return;
+    const form = document.getElementById("reportsFilters");
+    if (!btn || !form) return;
 
     btn.addEventListener("click", function () {
-      const year = prompt("Enter year for PDF (e.g. 2026):", "{{ filters.year|default:'' }}");
-      if (!year) return;
-      const y = year.trim();
-      if (!/^\d{4}$/.test(y)) {
-        alert("Please enter a valid 4-digit year (e.g. 2026).");
-        return;
+      const params = new URLSearchParams(new FormData(form));
+      let year = params.get('year') || "{{ filters.year|default:'' }}";
+      year = (year || "").trim();
+      if (!/^[0-9]{4}$/.test(year)) {
+        year = prompt("Enter year for PDF (e.g. 2026):", year);
+        if (!year) return;
+        year = year.trim();
+        if (!/^\d{4}$/.test(year)) {
+          alert("Please enter a valid 4-digit year (e.g. 2026).\nPDF not generated.");
+          return;
+        }
+        params.set('year', year);
       }
-      const url = "{% url 'reports_pdf' 2000 %}".replace("2000", y);
-      window.open(url, "_blank", "noopener,noreferrer");
+
+      const base = "{% url 'reports_pdf' 2000 %}".replace('2000', year);
+      // Ensure date_from/date_to and other filters are included
+      const qs = params.toString();
+      const url = qs ? base + '?' + qs : base;
+      window.open(url, '_blank', 'noopener,noreferrer');
     });
   })();
 </script>

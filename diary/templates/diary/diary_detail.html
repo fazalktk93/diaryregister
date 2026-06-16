@@ -131,7 +131,7 @@
         <div>
           <small class="text-muted d-block mb-2">Marked Date</small>
           {% if last_movement and last_movement.action_datetime %}
-            <strong>{{ last_movement.action_datetime|date:"M d, Y" }}</strong>
+            <strong>{{ last_movement.action_datetime|date:"M d, Y h:i A" }}</strong>
           {% else %}
             <strong>{{ diary.marked_date|default:"—" }}</strong>
           {% endif %}
@@ -180,7 +180,7 @@
         {% for m in movements %}
           <tr role="row">
             <td>
-              <small class="text-muted d-block">{{ m.action_datetime|date:"M d, Y" }}</small>
+              <small class="text-muted d-block">{{ m.action_datetime|date:"M d, Y h:i A" }}</small>
             </td>
             <td>
               <span class="badge bg-primary" style="font-size: 0.85rem;">{{ m.action_type }}</span>
@@ -258,7 +258,7 @@
   </div>
 </div>
 
-{% endblock %}
+
 
     <script>
       // Movement modal handling: load form via AJAX and submit via fetch
@@ -344,3 +344,5 @@
         }
       });
     </script>
+
+{% endblock %}
