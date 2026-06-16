@@ -8,7 +8,7 @@
       <h1 class="mb-1"><i class="bi bi-bar-chart"></i> Reports</h1>
       <p class="text-light mb-0 opacity-75">View and export comprehensive diary data</p>
     </div>
-    {% if can_view_sensitive %}
+    {% if can_download_pdf %}
       <button class="btn btn-light" type="button" id="btnPdfLocal" aria-label="Generate PDF report">
         <i class="bi bi-file-earmark-pdf"></i> Download PDF
       </button>
@@ -25,6 +25,15 @@
           <div class="col-sm-3">
             <label for="id_year" class="form-label">Year</label>
             <input id="id_year" class="form-control" name="year" value="{{ filters.year }}" placeholder="e.g. 2026" inputmode="numeric" aria-label="Filter by year">
+          </div>
+          <div class="col-sm-3">
+            <label for="id_date_from" class="form-label">Date From</label>
+            <input id="id_date_from" class="form-control" type="date" name="date_from" value="{{ filters.date_from }}" aria-label="Filter from date">
+          </div>
+
+          <div class="col-sm-3">
+            <label for="id_date_to" class="form-label">Date To</label>
+            <input id="id_date_to" class="form-control" type="date" name="date_to" value="{{ filters.date_to }}" aria-label="Filter to date">
           </div>
           <div class="col-sm-auto d-flex gap-2">
             <button type="submit" class="btn btn-primary" aria-label="Apply filters">
@@ -141,7 +150,12 @@
                 {{ d.movement_history_plain|cut:"Registry"|default_if_none:""|truncatewords:5 }}
               </small>
             </td>
-            <td><small>{{ d.marked_to|cut:"Registry"|default_if_none:"" }}</small></td>
+            <td>
+              <small>{{ d.marked_to|cut:"Registry"|default_if_none:"" }}</small>
+              {% if d.last_movement_dt %}
+                <div class="small text-muted">{{ d.last_movement_dt|date:"M d, Y" }}</div>
+              {% endif %}
+            </td>
           </tr>
         {% empty %}
           <tr role="row">

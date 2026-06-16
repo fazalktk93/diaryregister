@@ -5,14 +5,16 @@ config/__pycache__/urls.cpython-311.pyc
 config/__pycache__/wsgi.cpython-311.pyc
 
 config/__pycache__*
+diary/__pycache__*
 db.sqlite3
 diary/migrations/__pycache__*
 diary/migrations/__pycache__/__init__.cpython-311.pyc
 diary/migrations/__pycache__/0001_initial.cpython-311.pyc
 diary/_pycache__*
 _pycache__*
-_pycache__
+*_pycache__*
 venv/*
-venv
+*venv/*
 tests/*
-db.sqlite3
+*db.sqlite3*
+db*

@@ -75,6 +75,11 @@ class DiaryCreateForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        # Ensure marked_to is provided by the user when creating a diary
+        marked_to = (cleaned.get("marked_to") or "").strip()
+        if not marked_to:
+            self.add_error("marked_to", "Marked To (destination) is required.")
+
         diary_type = (cleaned.get("diary_type") or "").strip()
         folders = cleaned.get("no_of_folders")
         

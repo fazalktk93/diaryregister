@@ -32,7 +32,7 @@ from .models import Diary, DiaryMovement, Office
 DIARYNO_RE = re.compile(r"^\s*(\d{4})\s*-\s*(\d+)\s*$")  # 2026-12
 
 
-def create_diary_with_movement(diary_data: dict, created_by, initial_remarks: str = "Initial diary created") -> Diary:
+def create_diary_with_movement(diary_data: dict, created_by, initial_remarks: str = "") -> Diary:
     """
     Helper function to create a diary and its initial movement record.
     Prevents code duplication across views.
@@ -47,18 +47,20 @@ def create_diary_with_movement(diary_data: dict, created_by, initial_remarks: st
     """
     diary = Diary.create_with_next_number(created_by=created_by, **diary_data)
 
+    action_time = timezone.now()
     DiaryMovement.objects.create(
         diary=diary,
         from_office=diary.received_from or settings.DEFAULT_OFFICE_NAME,
         to_office=diary.marked_to or (diary.received_from or settings.DEFAULT_OFFICE_NAME),
         action_type=DiaryMovement.ActionType.CREATED,
-        action_datetime=timezone.now(),
-        remarks=initial_remarks,
+        action_datetime=action_time,
+        remarks=(initial_remarks or ""),
         created_by=created_by,
     )
 
     diary.status = Diary.Status.CREATED
-    diary.marked_date = timezone.localdate()
+    # Set marked_date from the movement's action_datetime for accuracy
+    diary.marked_date = timezone.localtime(action_time).date()
     diary.save(update_fields=["status", "marked_date"])
 
     return diary
@@ -105,22 +107,38 @@ def diary_list(request):
         qs = qs.filter(status=status)
 
     if q:
+        from django.utils.dateparse import parse_date
         m = DIARYNO_RE.match(q)
         if m:
             y = int(m.group(1))
             s = int(m.group(2))
             qs = qs.filter(year=y, sequence=s)
-        elif q.isdigit():
-            qs = qs.filter(sequence=int(q))
         else:
-            qs = qs.filter(
-                Q(subject__icontains=q)
-                | Q(received_from__icontains=q)
-                | Q(received_diary_no__icontains=q)
-                | Q(file_letter__icontains=q)
-                | Q(marked_to__icontains=q)
-                | Q(remarks__icontains=q)
-            )
+            # allow searching by diary_date (ISO or dd-mm-yyyy or dd/mm/yyyy)
+            parsed = parse_date(q)
+            if not parsed:
+                # try dd-mm-yyyy or dd/mm/yyyy
+                import datetime
+                for fmt in ("%d-%m-%Y", "%d/%m/%Y"):
+                    try:
+                        parsed = datetime.datetime.strptime(q, fmt).date()
+                        break
+                    except Exception:
+                        parsed = None
+
+            if parsed:
+                qs = qs.filter(diary_date=parsed)
+            elif q.isdigit():
+                qs = qs.filter(sequence=int(q))
+            else:
+                qs = qs.filter(
+                    Q(subject__icontains=q)
+                    | Q(received_from__icontains=q)
+                    | Q(received_diary_no__icontains=q)
+                    | Q(file_letter__icontains=q)
+                    | Q(marked_to__icontains=q)
+                    | Q(remarks__icontains=q)
+                )
 
     # show diaries in sequential order: year asc, sequence asc (1,2,3...)
     qs = qs.order_by("-diary_date", "-sequence")
@@ -129,14 +147,28 @@ def diary_list(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
-    # Attach a lightweight `current_remarks` attribute on each diary for the template.
-    # Prefer `diary.remarks` if present, otherwise use the most recent movement's remarks.
+    # Attach lightweight attributes used by templates:
+    # - `current_remarks`: only real user-entered remarks (hide placeholder)
+    # - `last_movement`: latest DiaryMovement (None if none)
+    # - `last_movement_dt`: localized datetime of latest movement (None if none)
+    PLACEHOLDER_REMARK = "Initial diary created"
     for d in page_obj.object_list:
-        # `movements` was prefetched ordered newest-first, so first element (index 0) is latest
         mvs = list(getattr(d, "movements").all()) if hasattr(d, "movements") else []
+        # prefetched queryset in this view is newest-first, so index 0 is latest
         last_mv = mvs[0] if mvs else None
-        last_movement_remarks = (last_mv.remarks or "") if last_mv else ""
-        d.current_remarks = (d.remarks or "") or last_movement_remarks
+        d.last_movement = last_mv
+        if last_mv and last_mv.action_datetime:
+            d.last_movement_dt = timezone.localtime(last_mv.action_datetime)
+        else:
+            d.last_movement_dt = None
+
+        # Prefer diary.remarks if it is meaningful; otherwise use last movement remarks
+        diary_remarks = (d.remarks or "").strip()
+        if diary_remarks and diary_remarks != PLACEHOLDER_REMARK:
+            d.current_remarks = diary_remarks
+        else:
+            last_remarks = (last_mv.remarks or "").strip() if last_mv else ""
+            d.current_remarks = last_remarks if last_remarks and last_remarks != PLACEHOLDER_REMARK else ""
 
     return render(
         request,
@@ -148,7 +180,7 @@ def diary_list(request):
             "status": status,
             "status_choices": Diary.Status.choices,
             "create_form": create_form,
-            "can_view_sensitive": request.user.is_superuser,
+            "can_download_pdf": request.user.has_perm("diary.view_diary"),
             "can_add_movement": request.user.has_perm("diary.add_diarymovement"),
         },
     )
@@ -183,7 +215,14 @@ def diary_detail(request, pk: int):
     movements = diary.movements.all().order_by("action_datetime", "id")
     # Provide last movement remarks as a fallback when diary.remarks is empty
     last_movement = diary.movements.order_by("-action_datetime", "-id").first()
-    last_movement_remarks = (last_movement.remarks or "") if last_movement else ""
+    # Hide placeholder remark on diary object for templates
+    PLACEHOLDER_REMARK = "Initial diary created"
+    if (diary.remarks or "").strip() == PLACEHOLDER_REMARK:
+        diary.remarks = ""
+    PLACEHOLDER_REMARK = "Initial diary created"
+    last_movement_remarks = ""
+    if last_movement and (last_movement.remarks or "").strip() and last_movement.remarks.strip() != PLACEHOLDER_REMARK:
+        last_movement_remarks = last_movement.remarks or ""
     # Compute permission flags for template/UI control. Use Django model permissions,
     # not hardcoded group names. Keep `can_view_sensitive` for showing creator/updater info.
     can_edit = request.user.has_perm("diary.change_diary")
@@ -204,6 +243,7 @@ def diary_detail(request, pk: int):
             "can_change_movement": can_change_movement,
             "can_delete_movement": can_delete_movement,
             "last_movement_remarks": last_movement_remarks,
+            "last_movement": last_movement,
         },
     )
 
@@ -246,7 +286,7 @@ def movement_add(request, pk: int):
             mv.save()
 
             diary.marked_to = mv.to_office
-            diary.marked_date = timezone.localdate()
+            diary.marked_date = timezone.localtime(mv.action_datetime).date()
             diary.status = mv.action_type
             diary.save(update_fields=["marked_to", "marked_date", "status"])
 
@@ -431,6 +471,8 @@ def reports_table(request):
     Uses pagination and prefetch to stay performant.
     """
     year = (request.GET.get("year") or "").strip()
+    f_date_from = (request.GET.get("date_from") or "").strip()
+    f_date_to = (request.GET.get("date_to") or "").strip()
 
     f_diary_no = (request.GET.get("diary_no") or "").strip()
     f_received_diary_no = (request.GET.get("received_diary_no") or "").strip()
@@ -455,9 +497,20 @@ def reports_table(request):
         .prefetch_related(Prefetch("movements", queryset=DiaryMovement.objects.order_by("action_datetime", "id")))
     ).exclude(sequence=0)
 
+    from django.utils.dateparse import parse_date
+
     if year.isdigit() and len(year) == 4:
         qs = qs.filter(year=int(year))
 
+    # Parse date filters and apply inclusive filtering on diary_date
+    parsed_from = parse_date(f_date_from) if f_date_from else None
+    parsed_to = parse_date(f_date_to) if f_date_to else None
+    if parsed_from and parsed_to:
+        qs = qs.filter(diary_date__range=(parsed_from, parsed_to))
+    elif parsed_from:
+        qs = qs.filter(diary_date__gte=parsed_from)
+    elif parsed_to:
+        qs = qs.filter(diary_date__lte=parsed_to)
     # diary_no supports "2026-000012" or "2026-12" etc.
     if f_diary_no:
         m = DIARYNO_RE.match(f_diary_no)
@@ -502,6 +555,20 @@ def reports_table(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
+    # Attach last movement and sanitized remarks for display (avoid placeholder)
+    PLACEHOLDER_REMARK = "Initial diary created"
+    for d in page_obj.object_list:
+        mvs = list(getattr(d, "movements").all()) if hasattr(d, "movements") else []
+        # movements prefetched ascending here; last element is the latest
+        last_mv = mvs[-1] if mvs else None
+        d.last_movement = last_mv
+        if last_mv and last_mv.action_datetime:
+            d.last_movement_dt = timezone.localtime(last_mv.action_datetime)
+        else:
+            d.last_movement_dt = None
+        # sanitize diary remarks so placeholder isn't shown
+        d.remarks = (d.remarks or "") if (d.remarks or "") != PLACEHOLDER_REMARK else ""
+
     return render(
         request,
         "diary/reports_table.html",
@@ -510,6 +577,8 @@ def reports_table(request):
             "status_choices": Diary.Status.choices,
             "filters": {
                 "year": year,
+                "date_from": f_date_from,
+                "date_to": f_date_to,
                 "diary_no": f_diary_no,
                 "received_diary_no": f_received_diary_no,
                 "received_from": f_received_from,
@@ -520,7 +589,7 @@ def reports_table(request):
                 "status": f_status,
                 "marked_to": f_marked_to,
             },
-            "can_view_sensitive": request.user.is_superuser,
+            "can_download_pdf": request.user.has_perm("diary.view_diary"),
         },
     )
 
@@ -533,7 +602,7 @@ def reports_pdf(request, year: int):
     Adds page numbers and optional watermark branding.
     """
     # Restrict PDF download to superusers to avoid group-name checks here.
-    if not request.user.is_superuser:
+    if not request.user.has_perm("diary.view_diary"):
         return HttpResponse(status=403)
 
     qs = (
@@ -921,6 +990,11 @@ def _csv_rows_for_year(year):
             history = " / ".join(deduped)
 
         folders_display = str(d.no_of_folders) if (d.file_letter == "File" and (d.no_of_folders or 0) > 0) else "-"
+        # Hide placeholder remark in CSV export
+        PLACEHOLDER_REMARK = "Initial diary created"
+        remarks_val = (d.remarks or "")
+        if remarks_val == PLACEHOLDER_REMARK:
+            remarks_val = ""
         yield [
             d.diary_no_short,
             str(d.diary_date),
@@ -929,7 +1003,7 @@ def _csv_rows_for_year(year):
             d.file_letter or "-",
             folders_display,
             (d.subject or "-").replace("\n", " "),
-            (d.remarks or "-").replace("\n", " "),
+            (remarks_val or "-").replace("\n", " "),
             d.get_status_display() if hasattr(d, "get_status_display") else (d.status or "-"),
             history,
         ]
@@ -978,7 +1052,7 @@ def diary_year_report(request, year: int):
 def dashboard(request):
     """Dashboard main page showing month-wise counts for the current year and quick actions."""
     # ---- create (modal POST) ----
-    is_admin = request.user.is_superuser
+    is_admin = request.user.has_perm("diary.view_diary")
     create_form = DiaryCreateForm()
     if request.method == "POST":
         create_form = DiaryCreateForm(request.POST)

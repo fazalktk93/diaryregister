@@ -15,13 +15,18 @@
       </p>
     </div>
     <div class="btn-group btn-group-sm" role="group" aria-label="Diary actions">
-      <button type="button" class="btn btn-light movement-btn" data-url="{% url 'movement_add' diary.pk %}" aria-label="Add a new movement to this diary">
-        <i class="bi bi-plus-circle"></i> Movement
-      </button>
-      {% if can_view_sensitive %}
+      {% if can_add_movement %}
+        <button type="button" class="btn btn-light movement-btn" data-url="{% url 'movement_add' diary.pk %}" aria-label="Add a new movement to this diary">
+          <i class="bi bi-plus-circle"></i> Movement
+        </button>
+      {% endif %}
+      {% if can_edit %}
         <a class="btn btn-light" href="{% url 'diary_edit' diary.pk %}" aria-label="Edit diary {{ diary.diary_no }}">
           <i class="bi bi-pencil"></i> Edit
         </a>
+      {% endif %}
+
+      {% if can_delete %}
         <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#deleteModal" aria-label="Delete diary {{ diary.diary_no }}">
           <i class="bi bi-trash"></i> Delete
         </button>
@@ -118,11 +123,18 @@
         <div class="mb-3">
           <small class="text-muted d-block mb-2">Marked To</small>
           <strong>{{ diary.marked_to|default:"—" }}</strong>
+          {% if last_movement_remarks %}
+            {# keep remarks separate below #}
+          {% endif %}
         </div>
 
         <div>
           <small class="text-muted d-block mb-2">Marked Date</small>
-          <strong>{{ diary.marked_date|default:"—" }}</strong>
+          {% if last_movement and last_movement.action_datetime %}
+            <strong>{{ last_movement.action_datetime|date:"M d, Y" }}</strong>
+          {% else %}
+            <strong>{{ diary.marked_date|default:"—" }}</strong>
+          {% endif %}
         </div>
 
         {% if diary.remarks %}
@@ -151,7 +163,7 @@
     <table class="table table-hover mb-0 align-middle" role="grid" aria-label="Diary movement history">
       <thead>
         <tr role="row">
-          <th scope="col"><i class="bi bi-calendar"></i> Date/Time</th>
+          <th scope="col"><i class="bi bi-calendar"></i> Date</th>
           <th scope="col">Action</th>
           <th scope="col">From</th>
           <th scope="col">To</th>
@@ -169,7 +181,6 @@
           <tr role="row">
             <td>
               <small class="text-muted d-block">{{ m.action_datetime|date:"M d, Y" }}</small>
-              <code>{{ m.action_datetime|time:"H:i" }}</code>
             </td>
             <td>
               <span class="badge bg-primary" style="font-size: 0.85rem;">{{ m.action_type }}</span>
@@ -181,7 +192,11 @@
               <small>{{ m.to_office|default:"—" }}</small>
             </td>
             <td class="text-truncate" style="max-width: 280px;" title="{{ m.remarks|default:'' }}">
-              {{ m.remarks|default:"—" }}
+              {% if m.remarks and m.remarks != 'Initial diary created' %}
+                {{ m.remarks }}
+              {% else %}
+                —
+              {% endif %}
             </td>
             {% if can_view_sensitive %}
               <td>
@@ -250,7 +265,16 @@
       document.addEventListener('DOMContentLoaded', function () {
         const modalEl = document.getElementById('movementModal');
         if (!modalEl) return;
-        const movementModal = new bootstrap.Modal(modalEl);
+        let movementModal = null;
+        try {
+          movementModal = new bootstrap.Modal(modalEl);
+        } catch (e) {
+          // bootstrap may be unavailable; provide a minimal fallback
+          movementModal = {
+            show() { modalEl.classList.add('show'); modalEl.style.display = 'block'; modalEl.removeAttribute('aria-hidden'); },
+            hide() { modalEl.classList.remove('show'); modalEl.style.display = 'none'; modalEl.setAttribute('aria-hidden', 'true'); },
+          };
+        }
         const body = document.getElementById('movementModalBody');
 
         function getCookie(name) {
@@ -258,29 +282,31 @@
           return v ? v.pop() : '';
         }
 
-        // Attach to any button/link with data-url attribute used for movement add/edit
-        document.querySelectorAll('.movement-btn').forEach(function(btn){
-          btn.addEventListener('click', function (ev){
-            ev.preventDefault();
-            const url = btn.getAttribute('data-url') || btn.getAttribute('href');
-            body.innerHTML = '<div class="text-center py-5 text-muted">Loading...</div>';
-            movementModal.show();
-            fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}, credentials: 'same-origin'})
-              .then(r => r.json())
-              .then(data => {
-                if (data.success && data.html) {
-                  body.innerHTML = data.html;
-                  attachFormHandler(url);
-                } else if (data.html) {
-                  body.innerHTML = data.html;
-                  attachFormHandler(url);
-                } else {
-                  body.innerHTML = '<div class="text-danger p-3">Unable to load form.</div>';
-                }
-              }).catch(() => {
+        // Use delegated click handling for movement buttons
+        document.addEventListener('click', function (ev) {
+          const btn = ev.target.closest && ev.target.closest('.movement-btn');
+          if (!btn) return;
+          ev.preventDefault();
+          const url = btn.getAttribute('data-url') || btn.getAttribute('href');
+          
+          if (!url) return;
+          body.innerHTML = '<div class="text-center py-5 text-muted">Loading...</div>';
+          try { movementModal.show(); } catch (e) {}
+          fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}, credentials: 'same-origin'})
+            .then(r => r.json())
+            .then(data => {
+              if (data.success && data.html) {
+                body.innerHTML = data.html;
+                attachFormHandler(url);
+              } else if (data.html) {
+                body.innerHTML = data.html;
+                attachFormHandler(url);
+              } else {
                 body.innerHTML = '<div class="text-danger p-3">Unable to load form.</div>';
-              });
-          });
+              }
+            }).catch(() => {
+              body.innerHTML = '<div class="text-danger p-3">Unable to load form.</div>';
+            });
         });
 
         function attachFormHandler(url) {
