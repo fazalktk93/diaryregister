@@ -2,21 +2,20 @@
 {% block title %}Diaries{% endblock %}
 
 {% block content %}
+{% now "Y" as current_year %}
 <div class="page-header">
   <div class="d-flex justify-content-between align-items-center">
     <div>
       <h1 class="mb-0"><i class="bi bi-list-ul"></i> Diary List</h1>
       <p class="text-light mb-0 mt-1 opacity-75">Manage and track all diaries</p>
     </div>
-    <div>
+    <div class="d-flex flex-wrap gap-2 position-relative z-1">
       <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#newDiaryModal" aria-label="Create a new diary">
         <i class="bi bi-plus-circle"></i> New Diary
       </button>
-      {% if year and year|length == 4 %}
-        <a class="btn btn-outline-light" href="{% url 'diary_year_report' year %}" aria-label="View year {{ year }} report">
-          <i class="bi bi-file-earmark-pdf"></i> Year Report
-        </a>
-      {% endif %}
+      <a id="yearReportButton" class="btn btn-outline-light" href="{% url 'diary_year_report' current_year %}" data-url-template="{% url 'diary_year_report' 2000 %}" data-default-year="{{ current_year }}" aria-label="View the {{ current_year }} year report">
+        <i class="bi bi-calendar-year"></i> Year Report
+      </a>
     </div>
   </div>
 </div>
@@ -25,20 +24,21 @@
   <div class="col-12">
     <div class="card">
       <div class="card-body">
-        <form method="get" aria-label="Filter diaries">
+        <form id="diaryFilters" method="get" action="{% url 'diary_list' %}" aria-label="Filter diaries">
           <fieldset>
             <legend class="form-label fw-bold mb-3"><i class="bi bi-funnel"></i> Filter Diaries</legend>
             <div class="row g-3">
-              <div class="col-md-6">
+              <div class="col-lg-5">
                 <label for="search-input" class="form-label">Search</label>
-                <input id="search-input" class="form-control" name="q" value="{{ q }}" placeholder="Search: 2026-12, subject, office..." aria-describedby="search-help">
-                <small id="search-help" class="form-text text-muted">Enter diary number, subject, or office name</small>
+                <input id="search-input" class="form-control" name="q" value="{{ q }}" placeholder="Search: 2026-12, subject, office..." aria-describedby="search-help live-search-status" autocomplete="off">
+                <small id="search-help" class="form-text text-muted">Results update as you type.</small>
+                <span id="live-search-status" class="visually-hidden" aria-live="polite"></span>
               </div>
-              <div class="col-md-2">
+              <div class="col-lg-2">
                 <label for="year-input" class="form-label">Year</label>
                 <input id="year-input" class="form-control" name="year" value="{{ year }}" placeholder="e.g. 2026" aria-label="Filter by year">
               </div>
-              <div class="col-md-2">
+              <div class="col-lg-2">
                 <label for="status-select" class="form-label">Status</label>
                 <select id="status-select" class="form-select" name="status" aria-label="Filter by status">
                   <option value="">All Status</option>
@@ -47,10 +47,15 @@
                   {% endfor %}
                 </select>
               </div>
-              <div class="col-md-2 d-flex align-items-end">
+              <div class="col-lg-1 d-flex align-items-center">
                 <button type="submit" class="btn btn-primary w-100" aria-label="Apply filters">
                   <i class="bi bi-search"></i> Filter
                 </button>
+              </div>
+              <div class="col-lg-2 d-flex align-items-center">
+                <a id="clearDiaryFilters" class="btn btn-outline-danger w-100" href="{% url 'diary_list' %}" aria-label="Clear all diary filters">
+                  <i class="bi bi-x-circle"></i> Clear filters
+                </a>
               </div>
             </div>
           </fieldset>
@@ -75,22 +80,22 @@
         </div>
       </div>
 
-<div class="card">
+<div id="diary-list-results" class="card" aria-live="polite">
   <div class="table-responsive">
     <table class="table table-hover mb-0 align-middle" role="grid" aria-label="Diary list">
       <thead>
-        <tr role="row">
-          <th scope="col"><i class="bi bi-calendar"></i> Diary No</th>
-          <th scope="col">Received No</th>
-          <th scope="col">Received From</th>
-          <th scope="col">Type</th>
-          <th scope="col" class="text-center">Folders</th>
-          <th scope="col">Subject</th>
-          <th scope="col">Status</th>
-          <th scope="col">Marked To</th>
-          <th scope="col" class="text-center"><i class="bi bi-gear"></i> Action</th>
-        </tr>
-      </thead>
+  <tr role="row">
+    <th scope="col" style="color: white;"><i class="bi bi-calendar"></i> Diary No</th>
+    <th scope="col" style="color: white;">Received No</th>
+    <th scope="col" style="color: white;">Received From</th>
+    <th scope="col" style="color: white;">Type</th>
+    <th scope="col" class="text-center" style="color: white;">Folders</th>
+    <th scope="col" style="color: white;">Subject</th>
+    <th scope="col" style="color: white;">Status</th>
+    <th scope="col" style="color: white;">Marked To</th>
+    <th scope="col" class="text-center" style="color: white;"><i class="bi bi-gear"></i> Action</th>
+  </tr>
+</thead>
       <tbody>
         {% for d in page_obj.object_list %}
           <tr role="row" class="align-middle">
@@ -117,7 +122,7 @@
               {% endif %}
             </td>
             <td>
-              <div style="max-width: 350px; white-space: normal; word-break: break-word; overflow-wrap: anywhere;">
+              <div class="subject-cell">
                 {{ d.subject|default:"—" }}
               </div>
             </td>
@@ -130,7 +135,7 @@
                 <span class="badge bg-secondary">{{ d.status }}</span>
               {% endif %}
               {% if d.current_remarks %}
-                <div class="small text-muted mt-1 text-truncate" style="max-width:220px;" title="{{ d.current_remarks }}">{{ d.current_remarks|truncatechars:80 }}</div>
+                <div class="small text-muted mt-1 text-truncate remarks-cell" title="{{ d.current_remarks }}">{{ d.current_remarks|truncatechars:80 }}</div>
               {% endif %}
             </td>
             <td>
@@ -140,7 +145,7 @@
               {% endif %}
             </td>
             <td class="text-center">
-              <a class="btn btn-sm btn-info rounded me-2" href="{% url 'diary_detail' d.pk %}" aria-label="Open diary {{ d.diary_no }}">
+              <a class="btn btn-sm btn-info rounded me-2 mb-2" href="{% url 'diary_detail' d.pk %}" aria-label="Open diary {{ d.diary_no }}">
                 <i class="bi bi-eye"></i> View
               </a>
               {% if can_add_movement %}
@@ -153,7 +158,7 @@
         {% empty %}
           <tr role="row">
             <td colspan="9" class="text-center py-5">
-              <i class="bi bi-inbox" style="font-size: 2.5rem; color: #ccc;"></i>
+              <i class="bi bi-inbox empty-state-icon"></i>
               <p class="text-muted mt-2">No diaries found. Create one to get started!</p>
             </td>
           </tr>
@@ -168,21 +173,46 @@
       <strong>{{ page_obj.paginator.count }}</strong> total diaries — Page <strong>{{ page_obj.number }}</strong> of <strong>{{ page_obj.paginator.num_pages }}</strong>
     </div>
     <nav aria-label="Pagination navigation">
-      <ul class="pagination mb-0">
-        {% if page_obj.has_previous %}
-          <li class="page-item">
-            <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page=1" aria-label="First page">
-              <i class="bi bi-chevron-double-left"></i>
-            </a>
-          </li>
-          <li class="page-item">
-            <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.previous_page_number }}" aria-label="Previous page">
-              <i class="bi bi-chevron-left"></i>
-            </a>
-          </li>
-        {% endif %}
-        
+      {% if page_obj.has_previous %}
         {% if page_obj.has_next %}
+          <ul class="pagination mb-0">
+            <li class="page-item">
+              <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page=1" aria-label="First page">
+                <i class="bi bi-chevron-double-left"></i>
+              </a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.previous_page_number }}" aria-label="Previous page">
+                <i class="bi bi-chevron-left"></i>
+              </a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.next_page_number }}" aria-label="Next page">
+                <i class="bi bi-chevron-right"></i>
+              </a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.paginator.num_pages }}" aria-label="Last page">
+                <i class="bi bi-chevron-double-right"></i>
+              </a>
+            </li>
+          </ul>
+        {% else %}
+          <ul class="pagination mb-0">
+            <li class="page-item">
+              <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page=1" aria-label="First page">
+                <i class="bi bi-chevron-double-left"></i>
+              </a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.previous_page_number }}" aria-label="Previous page">
+                <i class="bi bi-chevron-left"></i>
+              </a>
+            </li>
+          </ul>
+        {% endif %}
+      {% else %}
+        <ul class="pagination mb-0">
           <li class="page-item">
             <a class="page-link" href="?q={{ q }}&year={{ year }}&status={{ status }}&page={{ page_obj.next_page_number }}" aria-label="Next page">
               <i class="bi bi-chevron-right"></i>
@@ -193,8 +223,8 @@
               <i class="bi bi-chevron-double-right"></i>
             </a>
           </li>
-        {% endif %}
-      </ul>
+        </ul>
+      {% endif %}
     </nav>
   </div>
   {% endif %}
@@ -204,10 +234,10 @@
 <!-- ========== New Diary Modal ========== -->
 <div class="modal fade" id="newDiaryModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
-    <div class="modal-content" style="border-radius: 12px;">
+    <div class="modal-content">
       <form method="post" novalidate>
         {% csrf_token %}
-        <div class="modal-header bg-dark text-white" style="border-radius: 12px 12px 0 0;">
+        <div class="modal-header">
           <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Create New Diary</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
@@ -330,6 +360,102 @@
         try { new bootstrap.Modal(el).show(); } catch (e) { el.classList.add('show'); el.style.display = 'block'; }
       }
     }
+  });
+</script>
+
+<script>
+  // Live filtering keeps the current page in place while the user types.
+  document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("diaryFilters");
+    const searchInput = document.getElementById("search-input");
+    const yearInput = document.getElementById("year-input");
+    const statusSelect = document.getElementById("status-select");
+    const clearButton = document.getElementById("clearDiaryFilters");
+    const statusMessage = document.getElementById("live-search-status");
+    const yearReportButton = document.getElementById("yearReportButton");
+    let results = document.getElementById("diary-list-results");
+    let timer;
+    let activeRequest;
+
+    if (!form || !searchInput || !results) return;
+
+    function requestUrl() {
+      const url = new URL(form.action, window.location.origin);
+      const params = new URLSearchParams(new FormData(form));
+      params.delete("page");
+      url.search = params.toString();
+      return url;
+    }
+
+    function syncYearActions() {
+      const enteredYear = (yearInput && yearInput.value || "").trim();
+      const selectedYear = /^\d{4}$/.test(enteredYear)
+        ? enteredYear
+        : (yearReportButton && yearReportButton.dataset.defaultYear);
+    }
+
+    function loadResults() {
+      const url = requestUrl();
+      if (activeRequest) activeRequest.abort();
+      const controller = new AbortController();
+      activeRequest = controller;
+      results.setAttribute("aria-busy", "true");
+      if (statusMessage) statusMessage.textContent = "Updating diary list.";
+
+      fetch(url, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        credentials: "same-origin",
+        signal: controller.signal,
+      })
+        .then(response => {
+          if (!response.ok) throw new Error("Unable to filter the diary list.");
+          return response.text();
+        })
+        .then(html => {
+          const nextResults = new DOMParser().parseFromString(html, "text/html").getElementById("diary-list-results");
+          if (!nextResults) throw new Error("Filtered results were not returned.");
+          results.replaceWith(nextResults);
+          results = nextResults;
+          window.history.replaceState({}, "", url);
+          if (statusMessage) statusMessage.textContent = "Diary list updated.";
+        })
+        .catch(error => {
+          if (error.name === "AbortError") return;
+          // Preserve the normal GET behaviour if a live request cannot be completed.
+          window.location.assign(url);
+        })
+        .finally(() => {
+          if (results) results.removeAttribute("aria-busy");
+          if (activeRequest === controller) activeRequest = null;
+        });
+    }
+
+    function scheduleResults() {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(loadResults, 250);
+    }
+
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      window.clearTimeout(timer);
+      loadResults();
+    });
+    searchInput.addEventListener("input", scheduleResults);
+    if (yearInput) yearInput.addEventListener("input", () => {
+      syncYearActions();
+      scheduleResults();
+    });
+    if (statusSelect) statusSelect.addEventListener("change", loadResults);
+    if (clearButton) {
+      clearButton.addEventListener("click", event => {
+        event.preventDefault();
+        form.reset();
+        syncYearActions();
+        loadResults();
+        searchInput.focus();
+      });
+    }
+    syncYearActions();
   });
 </script>
 

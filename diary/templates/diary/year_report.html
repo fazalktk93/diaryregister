@@ -8,9 +8,17 @@
       <h1 class="mb-1"><i class="bi bi-calendar-year"></i> Year Report {{ year }}</h1>
       <p class="text-light mb-0 opacity-75">Complete movement history for all diaries in {{ year }}</p>
     </div>
-    <a class="btn btn-light btn-sm" href="{% url 'diary_list' %}?year={{ year }}">
-      <i class="bi bi-arrow-left"></i> Back to Diary List
-    </a>
+    <div class="btn-group" role="group" aria-label="Year report actions">
+      <a class="btn btn-light btn-sm" href="{% url 'reports_csv' year %}" title="Download the complete {{ year }} report as CSV">
+        <i class="bi bi-filetype-csv"></i> Export CSV
+      </a>
+      <a class="btn btn-light btn-sm" href="{% url 'reports_pdf' year %}" target="_blank" rel="noopener" title="Open the complete {{ year }} report as PDF">
+        <i class="bi bi-file-earmark-pdf"></i> Export PDF
+      </a>
+      <a class="btn btn-outline-light btn-sm" href="{% url 'diary_list' %}?year={{ year }}">
+        <i class="bi bi-arrow-left"></i> Back to Diary List
+      </a>
+    </div>
   </div>
 </div>
 
@@ -31,10 +39,10 @@
     <table class="table table-hover mb-0 align-middle" role="grid" aria-label="Year report for {{ year }}">
       <thead>
         <tr role="row">
-          <th scope="col" style="white-space:nowrap;"><i class="bi bi-calendar"></i> Diary No</th>
-          <th scope="col" style="white-space:nowrap;">Date</th>
-          <th scope="col">Subject</th>
-          <th scope="col">Movement History</th>
+          <th scope="col" class="no-wrap" style="color: white;"><i class="bi bi-calendar"></i> Diary No</th>
+          <th scope="col" class="no-wrap" style="color: white;">Date</th>
+          <th scope="col" style="color: white;">Subject</th>
+          <th scope="col" style="color: white;">Movement History</th>
         </tr>
       </thead>
       <tbody>
@@ -48,7 +56,7 @@
             <td>
               <small class="text-muted">{{ d.diary_date|date:"M d, Y" }}</small>
             </td>
-            <td class="text-truncate" style="max-width: 300px;" title="{{ d.subject|default:'' }}">
+            <td class="text-truncate subject-cell" title="{{ d.subject|default:'' }}">
               {{ d.subject|default:"—" }}
             </td>
             <td>
@@ -58,7 +66,7 @@
         {% empty %}
           <tr role="row">
             <td colspan="4" class="text-center py-5">
-              <i class="bi bi-inbox" style="font-size: 2.5rem; color: #ccc;"></i>
+              <i class="bi bi-inbox empty-state-icon"></i>
               <p class="text-muted mt-2">No diaries found for {{ year }}.</p>
             </td>
           </tr>
