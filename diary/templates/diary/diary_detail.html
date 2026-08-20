@@ -108,15 +108,15 @@
         <div class="mb-3">
           <small class="text-muted d-block mb-2">Status</small>
           {% if diary.status == "Pending" %}
-            <span class="badge bg-warning text-dark" style="font-size: 0.9rem; padding: 0.6rem 0.8rem;">
+            <span class="badge bg-warning text-dark status-badge">
               <i class="bi bi-hourglass-split"></i> {{ diary.status }}
             </span>
           {% elif diary.status == "Completed" %}
-            <span class="badge bg-success" style="font-size: 0.9rem; padding: 0.6rem 0.8rem;">
+            <span class="badge bg-success status-badge">
               <i class="bi bi-check-circle"></i> {{ diary.status }}
             </span>
           {% else %}
-            <span class="badge bg-secondary" style="font-size: 0.9rem; padding: 0.6rem 0.8rem;">{{ diary.status }}</span>
+            <span class="badge bg-secondary status-badge">{{ diary.status }}</span>
           {% endif %}
         </div>
 
@@ -183,7 +183,7 @@
               <small class="text-muted d-block">{{ m.action_datetime|date:"M d, Y h:i A" }}</small>
             </td>
             <td>
-              <span class="badge bg-primary" style="font-size: 0.85rem;">{{ m.action_type }}</span>
+              <span class="badge bg-primary">{{ m.action_type }}</span>
             </td>
             <td>
               <small>{{ m.from_office|default:"—" }}</small>
@@ -191,7 +191,7 @@
             <td>
               <small>{{ m.to_office|default:"—" }}</small>
             </td>
-            <td class="text-truncate" style="max-width: 280px;" title="{{ m.remarks|default:'' }}">
+            <td class="text-truncate detail-remarks-cell" title="{{ m.remarks|default:'' }}">
               {% if m.remarks and m.remarks != 'Initial diary created' %}
                 {{ m.remarks }}
               {% else %}
@@ -210,9 +210,9 @@
                     <button type="button" class="btn btn-outline-secondary movement-btn" data-url="{% url 'movement_edit' m.pk %}" aria-label="Edit movement {{ m.id }}"><i class="bi bi-pencil"></i></button>
                   {% endif %}
                   {% if can_delete_movement %}
-                    <form method="post" action="{% url 'movement_delete' m.pk %}" onsubmit="return confirm('Delete this movement?');" style="display:inline;">
+                    <form method="post" action="{% url 'movement_delete' m.pk %}" onsubmit="return confirm('Delete this movement?');" class="inline-form">
                       {% csrf_token %}
-                      <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash"></i></button>
+                      <button type="submit" class="btn btn-outline-danger" aria-label="Trash" title="Trash"><i class="bi bi-trash"></i></button>
                     </form>
                   {% endif %}
                 </div>
@@ -222,7 +222,7 @@
         {% empty %}
           <tr role="row">
             <td colspan="{% if can_view_sensitive %}{% if can_change_movement or can_delete_movement %}7{% else %}6{% endif %}{% else %}{% if can_change_movement or can_delete_movement %}6{% else %}5{% endif %}{% endif %}" class="text-center py-5">
-              <i class="bi bi-inbox" style="font-size: 2rem; color: #ccc;"></i>
+              <i class="bi bi-inbox empty-state-icon detail-empty-icon"></i>
               <p class="text-muted mt-2">No movements yet. Add one to track this diary.</p>
             </td>
           </tr>
@@ -247,7 +247,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-        <form method="post" action="{% url 'diary_delete' diary.pk %}" style="display:inline;">
+        <form method="post" action="{% url 'diary_delete' diary.pk %}" class="inline-form">
           {% csrf_token %}
           <button type="submit" class="btn btn-danger">
             <i class="bi bi-trash"></i> Delete Diary

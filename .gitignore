@@ -18,3 +18,12 @@ venv/*
 tests/*
 *db.sqlite3*
 db*
+# Local database / exported data
+data.json
+db.sqlite3
+
+# Generated static files
+staticfiles/
+
+# Environment variables / secrets
+.env

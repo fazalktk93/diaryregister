@@ -43,9 +43,6 @@
               <i class="bi bi-arrow-clockwise"></i> Reset
             </a>
           </div>
-          <div class="col text-muted small">
-            <i class="bi bi-info-circle"></i> Table includes 50 rows per page with filters and full movement history
-          </div>
         </div>
       </fieldset>
     </form>
@@ -57,16 +54,16 @@
     <table class="table table-hover mb-0 align-middle" role="grid" aria-label="Diary reports table">
       <thead>
         <tr role="row">
-          <th scope="col"><i class="bi bi-calendar"></i> Diary No</th>
-          <th scope="col">Date</th>
-          <th scope="col">Rcvd No</th>
-          <th scope="col">Rcvd From</th>
-          <th scope="col">Type</th>
-          <th scope="col" class="text-center">Folders</th>
-          <th scope="col">Subject</th>
-          <th scope="col">Status</th>
-          <th scope="col">Movement</th>
-          <th scope="col">Current</th>
+          <th scope="col" style="color: white;"><i class="bi bi-calendar"></i> Diary No</th>
+          <th scope="col" style="color: white;">Date</th>
+          <th scope="col" style="color: white;">Rcvd No</th>
+          <th scope="col" style="color: white;">Rcvd From</th>
+          <th scope="col" style="color: white;">Type</th>
+          <th scope="col" class="text-center" style="color: white;">Folders</th>
+          <th scope="col" style="color: white;">Subject</th>
+          <th scope="col" style="color: white;">Status</th>
+          <th scope="col" style="color: white;">Movement</th>
+          <th scope="col" style="color: white;">Current</th>
         </tr>
         <tr role="row" class="table-light">
           <th scope="col">
@@ -131,7 +128,7 @@
               {% endif %}
             </td>
             <td>
-              <div style="max-width: 320px; white-space: normal; word-break: break-word; overflow-wrap: anywhere;">
+              <div class="subject-cell subject-cell-report">
                 <small>{{ d.subject|default:"—" }}</small>
               </div>
             </td>
@@ -145,7 +142,7 @@
               {% endif %}
             </td>
             <td>
-              <small class="text-muted d-block text-truncate" style="max-width: 180px;"
+              <small class="text-muted d-block text-truncate history-cell"
                     title="{{ d.movement_history_plain|cut:'Registry'|default_if_none:'' }}">
                 {{ d.movement_history_plain|cut:"Registry"|default_if_none:""|truncatewords:5 }}
               </small>
@@ -160,7 +157,7 @@
         {% empty %}
           <tr role="row">
             <td colspan="10" class="text-center py-5">
-              <i class="bi bi-inbox" style="font-size: 2.5rem; color: #ccc;"></i>
+              <i class="bi bi-inbox empty-state-icon"></i>
               <p class="text-muted mt-2">No records found. Try adjusting your filters.</p>
             </td>
           </tr>
