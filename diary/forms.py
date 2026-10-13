@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from django import forms
 from django.utils import timezone
-from django.utils.timezone import is_naive, make_aware
 
-from .models import Diary, DiaryMovement
+from .models import Diary
 
 
 BOOTSTRAP_INPUT_CLASS = "form-control"
@@ -19,7 +18,8 @@ class DiaryCreateForm(forms.ModelForm):
     )
 
     # Override diary_date to use timezone.localdate as default
-    diary_date = forms.DateField(initial=timezone.localdate, required=True)
+    diary_date = forms.DateField(initial=timezone.localdate, required=True,
+        widget=forms.DateInput(attrs={'type': 'date', 'class': BOOTSTRAP_INPUT_CLASS}, format='%Y-%m-%d'))
 
     # New 3-option type field that maps to file_letter and service_included
     diary_type = forms.ChoiceField(
@@ -61,6 +61,15 @@ class DiaryCreateForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['marked_to'].required = True
+        self.fields['marked_to'].error_messages['required'] = 'Enter the destination office.'
+        self.fields['received_diary_no'].label = 'Received diary number'
+        self.fields['no_of_folders'].label = 'Number of folders'
+        self.fields['diary_date'].disabled = True
+        self.fields['diary_date'].initial = self.instance.diary_date if self.instance.pk else timezone.localdate()
+        self.fields['diary_date'].widget = forms.DateInput(attrs={'type': 'text', 'class': BOOTSTRAP_INPUT_CLASS}, format='%d-%m-%Y')
+        for office_field in ('received_from', 'marked_to'):
+            self.fields[office_field].widget.attrs['list'] = 'office-suggestions'
         # If editing an existing diary, compute diary_type from file_letter and service_included
         if self.instance and self.instance.pk:
             file_letter = self.instance.file_letter or ""
@@ -77,7 +86,7 @@ class DiaryCreateForm(forms.ModelForm):
         cleaned = super().clean()
         # Ensure marked_to is provided by the user when creating a diary
         marked_to = (cleaned.get("marked_to") or "").strip()
-        if not marked_to:
+        if not marked_to and 'marked_to' not in self.errors:
             self.add_error("marked_to", "Marked To (destination) is required.")
 
         diary_type = (cleaned.get("diary_type") or "").strip()
@@ -122,34 +131,4 @@ class DiaryCreateForm(forms.ModelForm):
         else:
             self.add_error("diary_type", "Please select a valid type.")
 
-        return cleaned
-
-
-class MovementCreateForm(forms.ModelForm):
-    class Meta:
-        model = DiaryMovement
-        fields = ["from_office", "to_office", "action_type", "action_datetime", "remarks"]
-        widgets = {
-            "from_office": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS}),
-            "to_office": forms.TextInput(attrs={"class": BOOTSTRAP_INPUT_CLASS}),
-            "action_type": forms.Select(attrs={"class": BOOTSTRAP_SELECT_CLASS}),
-            "action_datetime": forms.DateTimeInput(
-                attrs={"type": "datetime-local", "class": BOOTSTRAP_INPUT_CLASS}
-            ),
-            "remarks": forms.Textarea(attrs={"class": BOOTSTRAP_INPUT_CLASS, "rows": 3}),
-        }
-
-    def clean_action_datetime(self):
-        dt = self.cleaned_data.get("action_datetime")
-        if not dt:
-            return timezone.now()
-        if is_naive(dt):
-            return make_aware(dt, timezone.get_current_timezone())
-        return dt
-
-    def clean(self):
-        cleaned = super().clean()
-        to_office = (cleaned.get("to_office") or "").strip()
-        if not to_office:
-            self.add_error("to_office", "To office is required.")
         return cleaned

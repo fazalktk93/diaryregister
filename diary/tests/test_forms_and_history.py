@@ -10,13 +10,17 @@ class DiaryFormAndHistoryTests(TestCase):
     def setUp(self):
         User = get_user_model()
         self.user = User.objects.create_user(username="tester", password="pass")
+        from diary.models import Directorate, Membership
+        tenant = Directorate.objects.create(name='Administration', code='ADM')
+        Membership.objects.create(user=self.user, directorate=tenant, role='operator')
 
     def test_letter_without_folders_is_valid_and_forced_to_zero(self):
         data = {
             "diary_date": timezone.localdate(),
             "received_diary_no": "R-1",
             "received_from": "Office A",
-            "file_letter": "Letter",
+            "diary_type": "letter",
+            "marked_to": "Office B",
             # no_of_folders omitted as browser will not send it when disabled
             "subject": "Test",
 

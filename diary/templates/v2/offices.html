@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="visually-hidden">Office directory</h1>
+
+<div class="card" style="max-width:850px">
+  <div class="card-header">{{ offices.count }} registered offices</div>
+  <ul class="list-group list-group-flush">
+    {% for office in offices %}<li class="list-group-item">{{ office.name }}</li>
+    {% empty %}<li class="list-group-item text-body-secondary">No offices.</li>{% endfor %}
+  </ul>
+</div>
+{% endblock %}

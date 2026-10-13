@@ -1,483 +1,62 @@
+{% load static %}
 <!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Diary Management System (DMS){% endblock %}</title>
-  <meta name="description" content="Diary Management System (DMS)">
-
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="{% static 'diary/favicon/favicon.ico' %}" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'diary/favicon/favicon-32x32.png' %}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{% static 'diary/favicon/favicon-16x16.png' %}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'diary/favicon/apple-touch-icon.png' %}">
+  <link rel="manifest" href="{% static 'diary/favicon/site.webmanifest' %}">
+  <title>{% block title %}CDA Diary Register{% endblock %}</title>
+  <script>try { document.documentElement.dataset.bsTheme = localStorage.getItem('diary-theme') || 'light'; if (localStorage.getItem('diary-sidebar') === 'collapsed') document.documentElement.classList.add('sidebar-collapsed'); } catch(e) {}</script>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-  <style>
-    :root {
-      --ink: #eaf2ff;
-      --muted: #93a4c5;
-      --surface: rgba(15, 28, 57, 0.88);
-      --surface-strong: #101e3d;
-      --surface-soft: #192b52;
-      --line: rgba(147, 184, 255, 0.17);
-      --primary: #39d9ff;
-      --primary-dark: #0a9eca;
-      --violet: #8b5cf6;
-      --success: #34d399;
-      --danger: #fb7185;
-      --warning: #fbbf24;
-      --primary-gradient: linear-gradient(135deg, #39d9ff 0%, #6575ff 47%, #9b5de5 100%);
-      --panel-gradient: linear-gradient(145deg, rgba(24, 45, 86, 0.96), rgba(13, 25, 53, 0.92));
-      --shadow: 0 18px 50px rgba(2, 8, 28, 0.28);
-      --shadow-hover: 0 22px 55px rgba(2, 8, 28, 0.42);
-      --radius: 18px;
-      --radius-sm: 12px;
-      --transition: 180ms ease;
-    }
-
-    * { box-sizing: border-box; }
-
-    html { min-height: 100%; }
-
-    body {
-      min-height: 100vh;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at 5% 0%, rgba(57, 217, 255, 0.13), transparent 26rem),
-        radial-gradient(circle at 94% 18%, rgba(139, 92, 246, 0.15), transparent 28rem),
-        #081225;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      letter-spacing: 0.01em;
-    }
-
-    .navbar {
-      min-height: 76px;
-      background: rgba(8, 18, 37, 0.78) !important;
-      border-bottom: 1px solid var(--line);
-      -webkit-backdrop-filter: blur(18px);
-      backdrop-filter: blur(18px);
-      box-shadow: 0 8px 30px rgba(2, 8, 28, 0.22);
-    }
-
-    .navbar-brand {
-      display: inline-flex;
-      align-items: center;
-      gap: .6rem;
-      color: #fff !important;
-      font-size: 1.04rem;
-      font-weight: 750;
-      letter-spacing: .02em;
-    }
-
-    .navbar-brand i { color: var(--primary); font-size: 1.25rem; }
-    .navbar-dark .navbar-nav .nav-link { color: #b8c7e7 !important; font-weight: 600; }
-    .navbar-dark .navbar-nav .nav-link:hover,
-    .navbar-dark .navbar-nav .nav-link:focus { color: #fff !important; }
-    .navbar .nav-link i { color: var(--primary); margin-right: .25rem; }
-    .navbar-toggler { border-color: var(--line); }
-    .navbar-toggler:focus { box-shadow: 0 0 0 .2rem rgba(57, 217, 255, .2); }
-
-    main.container { max-width: 1500px; padding-top: 2.4rem !important; }
-
-    footer {
-      color: var(--muted) !important;
-      border-color: var(--line) !important;
-      font-size: .85rem;
-    }
-
-    h1, h2, h3, h4, h5, h6 { color: var(--ink); font-weight: 760; }
-    h1 { font-size: clamp(1.6rem, 3vw, 2.25rem); letter-spacing: -.035em; }
-    h2 { font-size: 1.25rem; }
-    a { color: var(--primary); }
-    a:hover { color: #a5f3fc; }
-    .text-muted { color: var(--muted) !important; }
-    code { color: #a5f3fc; }
-
-    .page-header,
-    .dashboard-header {
-      position: relative;
-      overflow: hidden;
-      padding: clamp(1.35rem, 3vw, 2.1rem);
-      border: 1px solid rgba(157, 211, 255, .2);
-      border-radius: var(--radius);
-      background: linear-gradient(112deg, rgba(29, 62, 119, .94), rgba(21, 30, 75, .95) 54%, rgba(93, 46, 145, .85));
-      box-shadow: var(--shadow);
-    }
-
-    .page-header::after,
-    .dashboard-header::after {
-      position: absolute;
-      top: -64px;
-      right: 7%;
-      width: 170px;
-      height: 170px;
-      border: 1px solid rgba(255, 255, 255, .16);
-      border-radius: 50%;
-      box-shadow: 0 0 0 32px rgba(255, 255, 255, .035), 0 0 0 64px rgba(255, 255, 255, .025);
-      content: "";
-      pointer-events: none;
-    }
-
-    .page-header h1,
-    .dashboard-header h1 {
-      position: relative;
-      z-index: 1;
-      margin-bottom: .25rem;
-      color: #fff;
-      background: none;
-      -webkit-text-fill-color: currentColor;
-    }
-
-    .page-header p,
-    .dashboard-header p { position: relative; z-index: 1; color: #d7e3fc; }
-
-    .card,
-    .modal-content {
-      overflow: hidden;
-      color: var(--ink);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel-gradient);
-      box-shadow: var(--shadow);
-    }
-
-    .card { transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition); }
-    .card:hover { border-color: rgba(57, 217, 255, .28); box-shadow: var(--shadow-hover); }
-    .card-header,
-    .modal-header {
-      padding: 1rem 1.25rem;
-      color: #fff;
-      border: 0;
-      border-bottom: 1px solid rgba(188, 215, 255, .14);
-      background: linear-gradient(110deg, rgba(31, 71, 135, .95), rgba(52, 35, 112, .94));
-    }
-    .card-header h2,
-    .card-header h5,
-    .modal-header h5 { color: #fff; }
-    .card-body { padding: clamp(1.15rem, 2.5vw, 1.55rem); }
-    .card-footer { color: var(--muted); border-color: var(--line); background: rgba(4, 13, 32, .23); }
-    .bg-light { background: rgba(255, 255, 255, .06) !important; }
-    .bg-dark { background: rgba(8, 18, 37, .72) !important; }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: .42rem;
-      min-height: 40px;
-      border-radius: 10px;
-      font-size: .84rem;
-      font-weight: 720;
-      letter-spacing: .015em;
-      transition: transform var(--transition), box-shadow var(--transition), background var(--transition), border-color var(--transition);
-    }
-    .btn:hover { transform: translateY(-2px); }
-    .btn:focus-visible { box-shadow: 0 0 0 .22rem rgba(57, 217, 255, .28); }
-    .btn-primary { border: 1px solid transparent; background: var(--primary-gradient); box-shadow: 0 9px 20px rgba(57, 129, 255, .25); }
-    .btn-primary:hover { background: linear-gradient(135deg, #58e2ff, #7885ff 47%, #ad70ee); box-shadow: 0 12px 28px rgba(57, 129, 255, .38); }
-    .btn-success { border-color: transparent; background: linear-gradient(135deg, #22c55e, #14b8a6); }
-    .btn-danger { border-color: transparent; background: linear-gradient(135deg, #f43f5e, #e11d48); }
-    .btn-warning { color: #1d1730; border-color: transparent; background: linear-gradient(135deg, #fcd34d, #f59e0b); }
-    .btn-info { color: #061421; border-color: transparent; background: linear-gradient(135deg, #67e8f9, #38bdf8); }
-    .btn-secondary { border-color: #475569; background: #334155; }
-    .btn-light { color: #10203f; border-color: rgba(255,255,255,.7); background: #eff6ff; }
-    .btn-light:hover { color: #071225; background: #fff; }
-    .btn-outline-light { color: #e8f4ff; border-color: rgba(232, 244, 255, .55); }
-    .btn-outline-light:hover { color: #0b1c37; background: #e8f4ff; }
-    .btn-outline-primary { color: var(--primary); border-color: rgba(57, 217, 255, .62); }
-    .btn-outline-primary:hover { color: #071225; border-color: var(--primary); background: var(--primary); }
-    .btn-outline-secondary { color: #c4d0e9; border-color: #566886; }
-    .btn-outline-secondary:hover { color: #fff; border-color: #667895; background: #42536f; }
-    .btn-outline-danger { color: #fda4af; border-color: rgba(251, 113, 133, .6); }
-    .btn-outline-danger:hover { color: #fff; border-color: var(--danger); background: var(--danger); }
-    .btn-sm { min-height: 32px; padding: .34rem .65rem; font-size: .75rem; }
-    /* .quick-create { margin-left: .65rem; } */
-
-    .form-label { color: #dce8ff; font-size: .88rem; font-weight: 680; }
-    .form-control,
-    .form-select {
-      min-height: 44px;
-      color: #f4f8ff;
-      border: 1px solid rgba(151, 180, 228, .26);
-      border-radius: 10px;
-      background-color: rgba(5, 16, 38, .52);
-    }
-    .form-control::placeholder { color: #8395b8; }
-    .form-control:focus,
-    .form-select:focus {
-      color: #fff;
-      border-color: var(--primary);
-      background-color: rgba(5, 16, 38, .78);
-      box-shadow: 0 0 0 .22rem rgba(57, 217, 255, .13);
-    }
-    .form-control:disabled { color: #8da0c4; background: rgba(255, 255, 255, .05); }
-    .form-select option { color: #eaf2ff; background: #112143; }
-    .input-group-text { color: var(--primary); border-color: rgba(151, 180, 228, .26); background: rgba(5, 16, 38, .52); }
-    .input-group .form-control { border-left: 0; }
-    .form-text { color: var(--muted) !important; }
-    .invalid-feedback { color: #fda4af; }
-
-    .alert { color: #e8f3ff; border: 1px solid var(--line); border-left: 4px solid var(--primary); border-radius: var(--radius-sm); background: rgba(21, 49, 91, .72); }
-    .alert-success { border-left-color: var(--success); background: rgba(6, 78, 59, .44); }
-    .alert-danger { border-left-color: var(--danger); background: rgba(94, 23, 45, .45); }
-    .alert-warning { border-left-color: var(--warning); background: rgba(104, 69, 11, .42); }
-    .alert-info { border-left-color: var(--primary); background: rgba(13, 62, 93, .44); }
-    .btn-close { filter: invert(1) grayscale(1) brightness(2); }
-
-    .dropdown-menu { color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-sm); background: #122345; box-shadow: var(--shadow); }
-    .dropdown-item { color: #dce8ff; }
-    .dropdown-item:hover,
-    .dropdown-item:focus { color: #fff; background: rgba(57, 217, 255, .12); }
-    .dropdown-divider { border-color: var(--line); }
-
-    .table { --bs-table-color: var(--ink); --bs-table-bg: transparent; --bs-table-border-color: var(--line); --bs-table-hover-color: #fff; --bs-table-hover-bg: rgba(57, 217, 255, .055); margin-bottom: 0; }
-    .table thead { color: #eff7ff; background: linear-gradient(100deg, rgba(31, 71, 135, .94), rgba(52, 35, 112, .94)); }
-    .table thead th { padding: .95rem 1rem; border: 0; font-size: .74rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
-    .table tbody td { padding: .95rem 1rem; vertical-align: middle; }
-    .table-light { --bs-table-bg: rgba(255, 255, 255, .045); --bs-table-color: var(--ink); }
-    .table-responsive { border-radius: var(--radius); }
-    .table a.fw-bold { color: #8eeeff; }
-
-    .badge { padding: .42rem .62rem; border: 1px solid transparent; border-radius: 999px; font-size: .72rem; font-weight: 720; }
-    .bg-primary { background: linear-gradient(135deg, #248cc8, #6b5be4) !important; }
-    .bg-success { background: linear-gradient(135deg, #159c72, #16b38c) !important; }
-    .bg-warning { background: linear-gradient(135deg, #fbbf24, #f59e0b) !important; }
-    .bg-info { background: linear-gradient(135deg, #06b6d4, #3b82f6) !important; }
-    .bg-secondary { background: #40516f !important; }
-    .badge.bg-light { color: #13233f !important; background: #e3edff !important; }
-    .status-badge { padding: .58rem .8rem; font-size: .82rem; }
-
-    .pagination { gap: .3rem; }
-    .page-link { color: var(--primary); border: 1px solid var(--line); border-radius: 9px !important; background: rgba(11, 27, 57, .8); }
-    .page-link:hover { color: #071225; border-color: var(--primary); background: var(--primary); }
-    .page-item.active .page-link { border-color: transparent; background: var(--primary-gradient); }
-
-    .dashboard-header .btn-group { position: relative; z-index: 1; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
-    .dashboard-header .btn { border-radius: 10px !important; }
-    .dashboard-panel { min-height: 100%; }
-    .panel-icon { color: var(--primary); font-size: 1.35rem; }
-    .scroll-panel { max-height: 500px; overflow-y: auto; }
-    .year-card { color: #dbeafe; border: 0; border-bottom: 1px solid var(--line); background: transparent; transition: background var(--transition), color var(--transition); }
-    .year-card:hover,
-    .year-card.active { color: #fff; background: linear-gradient(90deg, rgba(57, 217, 255, .17), rgba(139, 92, 246, .17)); }
-    .year-card .badge { background: rgba(255, 255, 255, .09) !important; }
-    .badge-count { min-width: 2.2rem; font-size: .88rem; }
-    .month-card { min-height: 156px; padding: 1.2rem; color: #eaf8ff; border: 1px solid rgba(82, 212, 255, .22); border-radius: var(--radius-sm); background: linear-gradient(145deg, rgba(30, 88, 142, .95), rgba(68, 48, 139, .95)); cursor: pointer; transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition); }
-    .month-card:hover,
-    .month-card:focus-visible { border-color: #77e7ff; outline: 0; box-shadow: 0 14px 28px rgba(7, 18, 49, .35); transform: translateY(-4px); }
-    .month-card .count { font-size: 2rem; font-weight: 780; letter-spacing: -.05em; }
-    .month-card .month-name { font-size: .82rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
-    .stat-card { border-top: 1px solid rgba(57, 217, 255, .42); }
-    .stat-icon { color: var(--primary); font-size: 2.6rem; opacity: .7; }
-
-    .auth-layout { max-width: 620px !important; margin-top: clamp(3rem, 11vh, 7rem); }
-    .auth-card { border-color: rgba(114, 209, 255, .3); }
-    .auth-brand { padding: 2.1rem; text-align: center; background: linear-gradient(125deg, #155d90, #3a3a9c 55%, #763a9b); }
-    .auth-brand h3 { color: #fff; }
-    .auth-icon { display: grid; width: 4.25rem; height: 4.25rem; place-items: center; margin: 0 auto 1rem; color: #fff; border: 1px solid rgba(255, 255, 255, .35); border-radius: 50%; background: rgba(255, 255, 255, .1); font-size: 1.75rem; }
-    .auth-card .card-footer { background: rgba(255, 255, 255, .045) !important; }
-
-    .office-item { padding: 1rem 1.5rem; color: var(--ink); border-color: var(--line); background: transparent; }
-    .office-item:hover { background: rgba(57, 217, 255, .05); }
-    .office-item .bi-building { color: var(--primary); }
-    .subject-cell { max-width: 350px; overflow-wrap: anywhere; word-break: break-word; }
-    .subject-cell-report { max-width: 320px; }
-    .history-cell { max-width: 180px; }
-    .remarks-cell { max-width: 220px; }
-    .detail-remarks-cell { max-width: 280px; }
-    .no-wrap { white-space: nowrap; }
-    .inline-form { display: inline; }
-    .empty-state-icon { color: #7185ab; font-size: 2.5rem; }
-    .detail-empty-icon { font-size: 2rem; }
-    .diary-info-value { display: block; overflow-wrap: anywhere; word-break: break-word; }
-
-    @media (max-width: 991px) {
-      /* .quick-create { margin: .5rem 0 0; } */
-      .navbar-nav { gap: .25rem; }
-      .dashboard-header .d-flex { gap: 1rem; align-items: flex-start !important; flex-direction: column; }
-      .dashboard-header .btn-group { justify-content: flex-start; }
-    }
-
-    @media (max-width: 767px) {
-      main.container { padding-top: 1.4rem !important; }
-      .page-header, .dashboard-header { padding: 1.3rem; }
-      .card-body { padding: 1.1rem; }
-      .table thead th, .table tbody td { padding: .78rem; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
-    }
-  </style>
-  {% block extra_css %}{% endblock %}
-  <style>
-    /* Teal design system */
-    :root {
-      --ink: #17211f;
-      --muted: #66736f;
-      --surface: #ffffff;
-      --surface-strong: #123c3a;
-      --surface-soft: #f7f8f5;
-      --line: #dde5e1;
-      --primary: #1f5c57;
-      --primary-dark: #123c3a;
-      --accent: #7cc8b5;
-      --violet: #7cc8b5;
-      --primary-gradient: linear-gradient(135deg, #123c3a 0%, #1f5c57 100%);
-      --panel-gradient: #ffffff;
-      --shadow: 0 10px 30px rgba(18, 60, 58, .08);
-      --shadow-hover: 0 16px 36px rgba(18, 60, 58, .14);
-    }
-
-    body {
-      color: #17211f;
-      background:
-        radial-gradient(circle at 4% 0%, rgba(124, 200, 181, .16), transparent 25rem),
-        radial-gradient(circle at 96% 16%, rgba(31, 92, 87, .08), transparent 27rem),
-        #f7f8f5;
-    }
-    .navbar { background: rgba(18, 60, 58, .97) !important; border-bottom-color: rgba(255, 255, 255, .14); box-shadow: 0 5px 20px rgba(18, 60, 58, .13); }
-    .navbar-brand { color: #fff !important; }
-    .navbar-brand i, .navbar .nav-link i { color: #b8e4d8; }
-    .navbar-dark .navbar-nav .nav-link { color: #ddf1eb !important; }
-    .navbar-dark .navbar-nav .nav-link:hover, .navbar-dark .navbar-nav .nav-link:focus { color: #fff !important; }
-    .navbar-toggler:focus { box-shadow: 0 0 0 .2rem rgba(124, 200, 181, .36); }
-
-    h1, h2, h3, h4, h5, h6 { color: #17211f; }
-    a { color: #1f5c57; }
-    a:hover { color: #123c3a; }
-    .text-muted { color: #66736f !important; }
-    code { color: #1f5c57; }
-    footer { color: #66736f !important; border-color: #dde5e1 !important; }
-
-    .page-header, .dashboard-header { border-color: rgba(18, 60, 58, .10); background: var(--primary-gradient); }
-    .page-header h1, .dashboard-header h1 { color: #fff; }
-    .page-header p, .dashboard-header p { color: #ddf1eb; }
-    .page-header::after, .dashboard-header::after { border-color: rgba(255, 255, 255, .28); box-shadow: 0 0 0 32px rgba(255, 255, 255, .07), 0 0 0 64px rgba(255, 255, 255, .04); }
-
-    .card, .modal-content { color: #17211f; border-color: #dde5e1; background: #fff; box-shadow: var(--shadow); }
-    .card:hover { border-color: #b8e4d8; box-shadow: var(--shadow-hover); }
-    .card-header, .modal-header { color: #fff; border-bottom-color: rgba(255, 255, 255, .15); background: var(--primary-gradient); }
-    .card-header h2, .card-header h5, .modal-header h5, .modal-header h2 { color: #fff; }
-    .card-footer { color: #66736f; border-color: #dde5e1; background: #f7f8f5; }
-    .bg-light { background: #f7f8f5 !important; }
-    .bg-dark { background: #123c3a !important; }
-
-    .btn:focus-visible { box-shadow: 0 0 0 .22rem rgba(124, 200, 181, .35); }
-    .btn-primary { border-color: #1f5c57; background: #1f5c57; box-shadow: 0 7px 16px rgba(31, 92, 87, .18); }
-    .btn-primary:hover { border-color: #123c3a; background: #123c3a; box-shadow: 0 10px 20px rgba(18, 60, 58, .24); }
-    .btn-info { color: #fff; background: #1f5c57; }
-    .btn-secondary { border-color: #66736f; background: #66736f; }
-    .btn-light { color: #123c3a; border-color: #fff; background: #fff; }
-    .btn-light:hover { color: #123c3a; border-color: #edf6f2; background: #edf6f2; }
-    .btn-outline-light { color: #fff; border-color: rgba(255, 255, 255, .78); }
-    .btn-outline-light:hover { color: #123c3a; border-color: #fff; background: #fff; }
-    .btn-outline-primary { color: #1f5c57; border-color: #1f5c57; }
-    .btn-outline-primary:hover { border-color: #1f5c57; background: #1f5c57; }
-    .btn-outline-secondary { color: #66736f; border-color: #aab7b2; }
-    .btn-outline-secondary:hover { color: #fff; border-color: #66736f; background: #66736f; }
-
-    .form-label { color: #17211f; }
-    .form-control, .form-select { color: #17211f; border-color: #dde5e1; background-color: #fff; }
-    .form-control::placeholder { color: #92a09b; }
-    .form-control:focus, .form-select:focus { color: #17211f; border-color: #7cc8b5; background-color: #fff; box-shadow: 0 0 0 .22rem rgba(124, 200, 181, .20); }
-    .form-control:disabled { color: #66736f; background: #f7f8f5; }
-    .form-select option { color: #17211f; background: #fff; }
-    .input-group-text { color: #1f5c57; border-color: #dde5e1; background: #f7f8f5; }
-    .form-text { color: #66736f !important; }
-
-    .alert { color: #17211f; border-color: #b8e4d8; border-left-color: #7cc8b5; background: #edf8f4; }
-    .alert-info { border-color: #b8e4d8; border-left-color: #7cc8b5; background: #edf8f4; }
-    .dropdown-menu { color: #17211f; border-color: #dde5e1; background: #fff; box-shadow: var(--shadow-hover); }
-    .dropdown-item { color: #17211f; }
-    .dropdown-item:hover, .dropdown-item:focus { color: #123c3a; background: #edf8f4; }
-    .dropdown-divider { border-color: #dde5e1; }
-
-    .table { --bs-table-color: #17211f; --bs-table-bg: transparent; --bs-table-border-color: #dde5e1; --bs-table-hover-color: #17211f; --bs-table-hover-bg: #f7f8f5; }
-    .table thead { color: #fff; background: var(--primary-gradient); }
-    .table-light { --bs-table-bg: #f7f8f5; --bs-table-color: #17211f; }
-    .table a.fw-bold { color: #1f5c57; }
-    .bg-primary { background: #1f5c57 !important; }
-    .bg-info { background: #7cc8b5 !important; }
-    .bg-secondary { background: #66736f !important; }
-    .badge.bg-light { color: #17211f !important; border-color: #dde5e1; background: #f7f8f5 !important; }
-    .page-link { color: #1f5c57; border-color: #dde5e1; background: #fff; }
-    .page-link:hover, .page-item.active .page-link { color: #fff; border-color: #1f5c57; background: #1f5c57; }
-
-    .panel-icon { color: #b8e4d8; }
-    .year-card { color: #17211f; border-bottom-color: #dde5e1; background: #fff; }
-    .year-card:hover, .year-card.active { color: #fff; background: #1f5c57; }
-    .year-card .badge { color: #66736f; border-color: #dde5e1; background: #f7f8f5 !important; }
-    .year-card.active .badge, .year-card:hover .badge { color: #fff; border-color: rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .18) !important; }
-    .month-card { color: #fff; border-color: #1f5c57; background: linear-gradient(145deg, #1f5c57, #123c3a); }
-    .month-card:hover, .month-card:focus-visible { border-color: #7cc8b5; box-shadow: 0 12px 24px rgba(31, 92, 87, .20); }
-    .stat-card { border-top-color: #7cc8b5; }
-    .stat-icon, .office-item .bi-building { color: #1f5c57; }
-    .auth-card { border-color: #b8e4d8; }
-    .auth-brand { background: var(--primary-gradient); }
-    .auth-card .card-footer { background: #f7f8f5 !important; }
-    .office-item { color: #17211f; border-color: #dde5e1; background: #fff; }
-    .office-item:hover { background: #edf8f4; }
-    .empty-state-icon { color: #aab7b2; }
-  </style>
+  <link href="{% static 'diary/css/app.css' %}?v={{ ui_asset_version }}" rel="stylesheet">
+  {% block extra_head %}{% endblock %}
 </head>
-<body>
-  <nav class="navbar navbar-expand-lg navbar-dark" role="navigation" aria-label="Main navigation">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="{% url 'dashboard' %}"><i class="bi bi-journal-bookmark-fill"></i> Diary Management System</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav" aria-controls="topNav" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-
-      <div class="collapse navbar-collapse" id="topNav">
-        {% if request.user.is_authenticated %}
-          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}"><i class="bi bi-grid-1x2"></i> Dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'diary_list' %}"><i class="bi bi-list-ul"></i> Diaries</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'reports_table' %}"><i class="bi bi-bar-chart-line"></i> Reports</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'directory' %}"><i class="bi bi-buildings"></i> Directory</a></li>
-          </ul>
-          <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center">
-            <li class="nav-item dropdown ms-lg-2">
-              <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-person-circle"></i> {{ request.user.get_username }}
-              </a>
-              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                <li><a class="dropdown-item" href="{% url 'change_password' %}"><i class="bi bi-key"></i> Change Password</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                  <form method="post" action="{% url 'logout' %}">
-                    {% csrf_token %}
-                    <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right"></i> Logout</button>
-                  </form>
-                </li>
-              </ul>
-            </li>
-          </ul>
-        {% else %}
-          <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center">
-            <li class="nav-item"><a class="btn btn-outline-light btn-sm" href="{% url 'login' %}">Login</a></li>
-          </ul>
-        {% endif %}
-      </div>
-    </div>
-  </nav>
-
-  <main class="container py-4">
-    {% if messages %}
-      <div role="region" aria-live="polite" aria-atomic="true">
-        {% for m in messages %}
-          <div class="alert alert-{{ m.tags }} mb-3" role="alert">
-            <strong>{% if m.tags == 'success' %}<i class="bi bi-check-circle"></i>{% elif m.tags == 'error' or m.tags == 'danger' %}<i class="bi bi-exclamation-circle"></i>{% elif m.tags == 'warning' %}<i class="bi bi-exclamation-triangle"></i>{% else %}<i class="bi bi-info-circle"></i>{% endif %}</strong> {{ m }}
-          </div>
-        {% endfor %}
-      </div>
+<body class="{% if user.is_authenticated %}workspace{% else %}auth-page{% endif %}">
+<a class="visually-hidden-focusable" href="#main">Skip to content</a>
+{% if user.is_authenticated %}
+<aside class="app-sidebar" id="navigation" aria-label="Main navigation">
+  <div class="sidebar-brand">
+    <a href="{% url 'dashboard' %}" aria-label="Diary Register home"><img src="{% static 'diary/logo.png' %}" alt="Capital Development Authority" class="brand-logo"></a>
+    <button type="button" class="icon-button sidebar-close" data-sidebar-toggle aria-label="Close navigation">{% include 'v2/_icon.html' with name='close' %}</button>
+    <div class="brand-name">Diary <span>Register</span></div>
+  </div>
+  <div class="workspace-badge"><span class="workspace-dot"></span><div><strong>{% if current_directorate %}{{ current_directorate.name }}{% elif account_membership.role == 'system' %}Administration console{% else %}Account workspace{% endif %}</strong></div></div>
+  <nav class="sidebar-nav">
+    {% if current_directorate %}
+    <a class="nav-item {% if active_route == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">{% include 'v2/_icon.html' with name='dashboard' %}<span>Dashboard</span></a>
+    <a class="nav-item {% if active_route == 'diary_list' or active_route == 'diary_detail' or active_route == 'diary_edit' %}active{% endif %}" href="{% url 'diary_list' %}">{% include 'v2/_icon.html' with name='book' %}<span>Diary register</span></a>
+    <a class="nav-item {% if active_route == 'reports_table' or active_route == 'diary_year_report' %}active{% endif %}" href="{% url 'reports_table' %}">{% include 'v2/_icon.html' with name='chart' %}<span>Reports</span></a>
+    <a class="nav-item {% if active_route == 'directory' %}active{% endif %}" href="{% url 'directory' %}">{% include 'v2/_icon.html' with name='building' %}<span>Office directory</span></a>
     {% endif %}
-
-    {% block content %}{% endblock %}
-  </main>
-
-  <footer class="mt-5 py-4 text-center border-top">
-    <p class="mb-0">&copy; 2024 Diary Management System (DMS). All rights reserved.</p>
-  </footer>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  {% block extra_js %}{% endblock %}
-</body>
-</html>
+    {% if can_write %}<a class="sidebar-add" href="{% url 'diary_create' %}" data-modal-url="{% url 'diary_create' %}" data-modal-title="Register diary">{% include 'v2/_icon.html' with name='plus' %}<span>Add new diary</span></a>{% endif %}
+    {% if can_manage %}<div class="nav-section-label mt-4">ADMINISTRATION</div><a class="nav-item {% if active_route == 'users' or active_route == 'user_create' or active_route == 'user_edit' %}active{% endif %}" href="{% url 'users' %}">{% include 'v2/_icon.html' with name='users' %}<span>User management</span></a>{% endif %}
+    {% if account_membership.role == 'system' %}<a class="nav-item {% if active_route == 'directorates' %}active{% endif %}" href="{% url 'directorates' %}">{% include 'v2/_icon.html' with name='building' %}<span>Directorates</span></a>{% endif %}
+    {% if account_membership.role == 'admin' %}<a class="nav-item {% if active_route == 'directorate_settings' %}active{% endif %}" href="{% url 'directorate_settings' %}">{% include 'v2/_icon.html' with name='settings' %}<span>Directorate settings</span></a>{% endif %}
+    {% if account_membership.role == 'system' or account_membership.role == 'admin' or account_membership.role == 'auditor' %}<a class="nav-item {% if active_route == 'audit_logs' %}active{% endif %}" href="{% url 'audit_logs' %}">{% include 'v2/_icon.html' with name='shield' %}<span>Audit log</span></a>{% endif %}
+  </nav>
+</aside>
+<button class="sidebar-backdrop" id="sidebar-backdrop" aria-label="Close navigation" tabindex="-1"></button>
+<div class="workspace-main">
+  <header class="topbar">
+    <div class="topbar-left"><button id="sidebar-toggle" class="icon-button" type="button" data-sidebar-toggle aria-label="Toggle navigation" aria-controls="navigation" aria-expanded="true">{% include 'v2/_icon.html' with name='menu' %}</button><span class="topbar-title">{{ workspace_page_title }}</span></div>
+    <div class="topbar-actions"><button type="button" class="theme-toggle icon-button" aria-label="Switch light or dark theme" title="Switch theme">{% include 'v2/_icon.html' with name='sun' %}</button><span class="topbar-divider"></span><div class="dropdown"><button class="profile-button dropdown-toggle" data-bs-toggle="dropdown" aria-label="Account menu"><span class="avatar">{{ user.username|slice:':1'|upper }}</span><span class="profile-name">{{ user.get_full_name|default:user.username }}<small>{{ account_membership.get_role_display }}</small></span></button><ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="{% url 'change_password' %}" data-modal-url="{% url 'change_password' %}" data-modal-title="Change password">Change password</a></li><li><hr class="dropdown-divider"></li><li><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="dropdown-item text-danger">Sign out</button></form></li></ul></div></div>
+  </header>
+  <main id="main" class="page-content">
+{% else %}
+<button type="button" class="theme-toggle icon-button auth-theme" aria-label="Switch light or dark theme">{% include 'v2/_icon.html' with name='sun' %}</button>
+<main id="main" class="auth-content">
+{% endif %}
+  {% for message in messages %}<div role="status" class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %}">{{ message }}</div>{% endfor %}
+  {% block content %}{% endblock %}
+</main>
+{% if user.is_authenticated %}</div>{% else %}<footer class="auth-footer">Capital Development Authority &middot; Diary Register</footer>{% endif %}
+{% if user.is_authenticated %}
+<div class="modal fade" id="actionModal" tabindex="-1" aria-labelledby="actionModalTitle" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h2 class="modal-title" id="actionModalTitle">Register diary</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div id="actionModalBody" class="modal-body" aria-live="polite"></div></div></div></div>
+{% endif %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'diary/js/app.js' %}?v={{ ui_asset_version }}" defer></script>
+{% block extra_js %}{% endblock %}
+</body></html>

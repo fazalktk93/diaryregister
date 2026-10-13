@@ -1,0 +1,24 @@
+<form method="post" action="{{ request.path }}" {% if in_modal %}data-modal-form{% endif %}>
+  {% csrf_token %}
+  <div class="form-fields">
+  {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="modal-request-error" role="alert"></div>
+  {% if is_diary_form %}
+  <div class="row g-3">
+    {% include 'v2/_field.html' with field=form.diary_date width='col-md-4' %}
+    {% include 'v2/_field.html' with field=form.received_diary_no width='col-md-4' %}
+    {% include 'v2/_field.html' with field=form.received_from width='col-md-4' %}
+    {% include 'v2/_field.html' with field=form.marked_to width='col-md-4' %}
+    {% include 'v2/_field.html' with field=form.diary_type width='col-md-4' %}
+    {% include 'v2/_field.html' with field=form.no_of_folders width='col-md-4' %}
+    {% include 'v2/_field.html' with field=form.subject width='col-12' %}
+    {% include 'v2/_field.html' with field=form.remarks width='col-12' %}
+  </div>
+  {% else %}<div class="row g-3">{% for field in form %}{% include 'v2/_field.html' with width='col-md-6' %}{% endfor %}</div>{% endif %}
+  {% if offices %}<datalist id="office-suggestions">{% for office in offices %}<option value="{{ office.name }}">{% endfor %}</datalist>{% endif %}
+  </div>
+  <div class="form-actions">
+    {% if in_modal %}<button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Cancel</button>{% else %}<a class="btn btn-cancel" href="{% if is_diary_form or is_movement_form %}{% url 'diary_list' %}{% elif active_route == 'directorate_create' or active_route == 'directorate_edit' %}{% url 'directorates' %}{% elif can_manage %}{% url 'users' %}{% else %}{% url 'dashboard' %}{% endif %}">Cancel</a>{% endif %}
+    <button type="submit" class="btn btn-success">{% include 'v2/_icon.html' with name='plus' %}{% if is_diary_form and not form.instance.pk %}Add diary{% elif is_movement_form %}Add movement{% else %}Save changes{% endif %}</button>
+  </div>
+</form>
