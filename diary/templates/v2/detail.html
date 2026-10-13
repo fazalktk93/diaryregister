@@ -16,7 +16,7 @@
         <dt>Registered</dt><dd>{{ diary.created_at|date:'d-m-Y, h:i A' }}</dd>
         <dt>Received reference</dt><dd>{{ diary.received_diary_no|default:'—' }}</dd>
         <dt>Received from</dt><dd>{{ diary.received_from|default:'—' }}</dd>
-        <dt>Type</dt><dd><span class="role-pill">{{ diary.file_letter|default:'—' }}{% if diary.service_included %} + Service Book{% endif %}</span></dd>
+        <dt>Type</dt><dd><span class="type-badge {% if diary.file_letter == 'File' %}{% if diary.service_included %}type-service-book{% else %}type-file{% endif %}{% else %}type-letter{% endif %}">{{ diary.file_letter|default:'—' }}{% if diary.service_included %} + Service Book{% endif %}</span></dd>
         <dt>Folders</dt><dd>{% if diary.file_letter == 'File' %}{{ diary.no_of_folders }}{% else %}—{% endif %}</dd>
         <dt>Subject</dt><dd>{{ diary.subject|default:'—'|linebreaksbr }}</dd>
         <dt>Destination</dt><dd>{{ diary.marked_to|default:'—' }}</dd>

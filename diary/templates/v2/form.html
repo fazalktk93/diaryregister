@@ -1,1 +1,1 @@
-{% extends 'base.html' %}{% block content %}<div class="page-heading"><div><h1>{{ title }}</h1></div></div><div class="card form-panel">{% include 'v2/_form.html' %}</div>{% endblock %}
+{% extends 'base.html' %}{% block content %}{% if active_route == "directorate_settings" or active_route == "change_password" %}<h1 class="visually-hidden">{{ title }}</h1>{% else %}<div class="page-heading"><div><h1>{{ title }}</h1></div></div>{% endif %}<div class="card form-panel">{% include 'v2/_form.html' %}</div>{% endblock %}

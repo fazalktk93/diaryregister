@@ -34,10 +34,11 @@ def database_config(config):
         return {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}
     if os.environ.get('DATABASE_URL'):
         import dj_database_url
-        result = dj_database_url.parse(os.environ['DATABASE_URL'], conn_max_age=60)
+        result = dj_database_url.parse(os.environ['DATABASE_URL'], conn_max_age=int(os.environ.get('DB_CONN_MAX_AGE', '60')))
         if result['ENGINE'] != 'django.db.backends.postgresql':
             raise RuntimeError('Production requires PostgreSQL.')
         result['ATOMIC_REQUESTS'] = True
+        result['CONN_HEALTH_CHECKS'] = True
         return result
     db = config.get('database', {})
     return {
@@ -49,4 +50,6 @@ def database_config(config):
         'PASSWORD': credential('DB_PASSWORD', config),
         'OPTIONS': {'sslmode': os.environ.get('DB_SSLMODE', db.get('sslmode', 'require')), 'connect_timeout': 10},
         'ATOMIC_REQUESTS': True,
+        'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '60')),
+        'CONN_HEALTH_CHECKS': True,
     }

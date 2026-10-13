@@ -9,6 +9,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connection, connections, IntegrityError, transaction
 from django.test import TestCase, TransactionTestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 from diary.access import scoped_diaries
@@ -42,6 +43,36 @@ class IsolationTests(TestCase):
         result = {'diary_date': str(timezone.localdate()), 'diary_type': 'letter', 'marked_to': 'Destination', 'subject': 'Registered safely', 'directorate': self.b.pk}
         result.update(extra)
         return result
+
+    def test_register_avoids_duplicate_counts_and_unused_movement_queries(self):
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(reverse('diary_list'))
+        self.assertEqual(response.status_code, 200)
+        selects = [query['sql'].lower() for query in queries if query['sql'].lstrip().lower().startswith('select')]
+        self.assertEqual(sum('from "diary_membership"' in sql for sql in selects), 1)
+        self.assertEqual(sum('count(' in sql and 'from "diary_diary"' in sql for sql in selects), 1)
+        self.assertFalse(any('from "diary_diarymovement"' in sql for sql in selects))
+
+    def test_dashboard_combines_kpis_without_changing_counts(self):
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['total'], 1)
+        self.assertEqual(response.context['today_count'], 1)
+        self.assertEqual(response.context['month_count'], 1)
+        selects = [query['sql'].lower() for query in queries if query['sql'].lstrip().lower().startswith('select')]
+        self.assertEqual(sum('from "diary_membership"' in sql for sql in selects), 1)
+        self.assertEqual(sum('today_count' in sql and 'month_count' in sql for sql in selects), 1)
+
+    def test_cached_membership_does_not_survive_request(self):
+        self.assertEqual(self.client.get(reverse('diary_list')).status_code, 200)
+        Membership.objects.filter(user=self.operator).update(directorate=self.b)
+        response = self.client.get(reverse('diary_list'))
+        self.assertContains(response, 'FIN_SECRET')
+        self.assertNotContains(response, 'ADM_VISIBLE')
+        self.b.is_active = False
+        self.b.save(update_fields=['is_active'])
+        self.assertEqual(self.client.get(reverse('diary_list')).status_code, 403)
 
     def test_independent_five_digit_numbering(self):
         self.assertEqual(self.diary.diary_no, '00001')
@@ -277,6 +308,16 @@ class IsolationTests(TestCase):
         logo = build.call_args.args[0][0]._cellvalues[0][0]
         self.assertEqual(logo.drawWidth, 80)
         self.assertAlmostEqual(logo.drawHeight / logo.drawWidth, logo.imageHeight / logo.imageWidth)
+
+    def test_pdf_heading_uses_full_directorate_name(self):
+        for name, expected in [('Administration', 'Administration Directorate'), ('Finance', 'Finance Directorate'), ('Finance Directorate', 'Finance Directorate')]:
+            self.a.name = name
+            self.a.save()
+            with patch('diary.v2_views.SimpleDocTemplate.build') as build:
+                self.client.get(reverse('reports_pdf', args=[self.diary.year]))
+            heading = build.call_args.args[0][0]._cellvalues[0][1].getPlainText()
+            self.assertIn('Diary Record of ' + expected, heading)
+            self.assertNotIn('Directorate Directorate', heading)
 
     def test_pdf_order_is_ascending_but_register_remains_newest_first(self):
         second = Diary.create_with_next_number(created_by=self.operator, subject='Second diary')

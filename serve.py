@@ -13,6 +13,7 @@ def main():
     django.setup()
     call_command('check_database')
     call_command('migrate', check_unapplied=True)
+    call_command('collectstatic', interactive=False, verbosity=0)
     from waitress import serve
     from config.wsgi import application
     host = os.environ.get('DIARY_BIND_HOST', config.get('bind_host', '127.0.0.1'))

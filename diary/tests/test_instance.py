@@ -44,6 +44,14 @@ class InstanceConfigurationTests(SimpleTestCase):
             self.assertEqual(result['NAME'], 'new')
             self.assertEqual(result['HOST'], 'new.host')
             self.assertTrue(result['ATOMIC_REQUESTS'])
+            self.assertEqual(result['CONN_MAX_AGE'], 60)
+            self.assertTrue(result['CONN_HEALTH_CHECKS'])
+
+    def test_database_url_reuses_connections_and_checks_health(self):
+        with patch.dict(os.environ, {'DATABASE_URL': 'postgresql://user:secret@localhost/database', 'DB_CONN_MAX_AGE': '30'}, clear=True):
+            result = instance.database_config({})
+            self.assertEqual(result['CONN_MAX_AGE'], 30)
+            self.assertTrue(result['CONN_HEALTH_CHECKS'])
 
     def test_production_database_url_cannot_select_sqlite(self):
         with patch.dict(os.environ, {'DATABASE_URL': 'sqlite:///:memory:'}, clear=True):

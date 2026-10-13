@@ -31,6 +31,14 @@
 .form-fields > .row { margin-left:0; margin-right:0; }
 .form-fields .field { min-width:0; }
 .diary-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; }
+.page-actions { display:flex; justify-content:flex-end; margin-bottom:16px; }
+.type-badge { display:inline-flex; border-radius:6px; padding:4px 8px; font-size:.74rem; font-weight:600; line-height:1.5; }
+.type-letter { background:#e5f0ff; color:#17579d; }
+.type-file { background:#fff1cf; color:#835315; }
+.type-service-book { background:#f0e6ff; color:#7040a1; }
+[data-bs-theme=dark] .type-letter { background:#263d5e; color:#aad1ff; }
+[data-bs-theme=dark] .type-file { background:#4a3d26; color:#f4d593; }
+[data-bs-theme=dark] .type-service-book { background:#402d57; color:#dcc0ff; }
 .diary-facts { display:grid; grid-template-columns:minmax(125px,33%) minmax(0,1fr); gap:13px 18px; margin:0; font-size:.875rem; }
 .diary-facts dt { font-weight:600; }
 .diary-facts dd { margin:0; overflow-wrap:anywhere; }

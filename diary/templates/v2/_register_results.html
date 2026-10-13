@@ -10,9 +10,9 @@
         <tbody>
           {% for diary in page_obj %}
           <tr>
-            <td><a class="table-number" href="{% url 'diary_detail' diary.pk %}">{{ diary.diary_no }}</a><small class="d-block text-body-secondary mt-1">{{ diary.diary_date|date:'d-m-Y' }}</small></td>
+            <td><a class="table-number" href="{% url 'diary_detail' diary.pk %}">{{ diary.diary_no }}</a></td>
             <td>{{ diary.received_diary_no|default:'—' }}</td><td>{{ diary.received_from|default:'—' }}</td>
-            <td><span class="role-pill">{{ diary.file_letter }}{% if diary.service_included %} + Service Book{% endif %}</span></td>
+            <td><span class="type-badge {% if diary.file_letter == 'File' %}{% if diary.service_included %}type-service-book{% else %}type-file{% endif %}{% else %}type-letter{% endif %}">{{ diary.file_letter }}{% if diary.service_included %} + Service Book{% endif %}</span></td>
             <td>{% if diary.file_letter == 'File' %}{{ diary.no_of_folders }}{% else %}—{% endif %}</td>
             <td class="subject">{{ diary.subject|truncatechars:180 }}{% if diary.remarks and not report_mode %}<small class="d-block text-body-secondary mt-1">{{ diary.remarks|truncatechars:80 }}</small>{% endif %}</td>
             <td>{% if report_mode %}{{ diary.movement_history_plain }}{% else %}{{ diary.marked_to|default:'—' }}{% if diary.marked_date %}<small class="d-block text-body-secondary mt-1">{{ diary.marked_date|date:'d-m-Y' }}</small>{% endif %}{% endif %}</td>
