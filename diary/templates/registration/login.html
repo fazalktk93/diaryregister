@@ -1,66 +1,24 @@
-{% extends "base.html" %}
-{% block title %}Login - Diary Management System (DMS){% endblock %}
-
-{% block extra_css %}
-<style>
-  nav.navbar, footer { display: none !important; }
-</style>
-{% endblock %}
-
+{% extends 'base.html' %}{% load static %}{% block title %}Sign in | CDA Diary Register{% endblock %}
 {% block content %}
-<div class="row justify-content-center auth-layout">
-  <div class="col-md-9">
-    <div class="card auth-card">
-      <div class="auth-brand">
-        <div class="auth-icon"><i class="bi bi-journal-lock"></i></div>
-        <h3 class="mb-2">Diary Management System</h3>
-        <p class="mb-0 opacity-75">Secure diary register</p>
-      </div>
+<div class="login-layout">
+  <section class="login-story" aria-label="About the diary register">
+    <img src="{% static 'diary/logo.png' %}" class="brand-logo" alt="Capital Development Authority">
+    <h2>Diary Register</h2>
 
-      <div class="card-body p-4">
-        {% if messages %}
-          {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-              {{ message }}
-              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-          {% endfor %}
-        {% endif %}
 
-        <form method="post" novalidate>
-          {% csrf_token %}
-          {% for field in form %}
-            <div class="mb-3">
-              <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-              <div class="input-group">
-                <span class="input-group-text" aria-hidden="true">
-                  {% if field.name == "username" %}<i class="bi bi-person"></i>{% else %}<i class="bi bi-shield-lock"></i>{% endif %}
-                </span>
-                <input
-                  type="{% if field.field.widget.input_type == 'password' %}password{% else %}text{% endif %}"
-                  id="{{ field.id_for_label }}"
-                  name="{{ field.name }}"
-                  class="form-control {% if field.errors %}is-invalid{% endif %}"
-                  placeholder="Enter your {{ field.label|lower }}"
-                  value="{{ field.value|default_if_none:'' }}"
-                  {% if field.field.required %}required{% endif %}
-                  {% if field.name == "username" %}autocomplete="username"{% else %}autocomplete="current-password"{% endif %}
-                >
-              </div>
-              {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors|striptags }}</div>{% endif %}
-            </div>
-          {% endfor %}
+    <small>CAPITAL DEVELOPMENT AUTHORITY &middot; ISLAMABAD</small>
+  </section>
+  <section class="login-form-panel">
+    <img src="{% static 'diary/logo.png' %}" class="brand-logo login-mobile-logo" alt="Capital Development Authority">
+    <h1>Welcome back</h1>
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger login-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}<div class="field {% if field.errors %}has-errors{% endif %}"><label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>{{ field }}{% if field.errors %}<div class="field-errors">{{ field.errors }}</div>{% endif %}</div>{% endfor %}
+      <div class="text-end mb-4"><a class="forgot" href="{% url 'password_reset' %}">Forgot your password?</a></div>
+      <button class="btn btn-success w-100">Sign in {% include 'v2/_icon.html' with name='arrow' %}</button>
 
-          <div class="d-grid mt-4">
-            <button type="submit" class="btn btn-primary fw-bold py-2"><i class="bi bi-box-arrow-in-right"></i> Sign in securely</button>
-          </div>
-        </form>
-      </div>
-
-      <div class="card-footer text-center py-3">
-        <small>Protected workspace for authorised users</small>
-      </div>
-    </div>
-  </div>
+    </form>
+  </section>
 </div>
 {% endblock %}

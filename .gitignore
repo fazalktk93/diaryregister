@@ -27,3 +27,9 @@ staticfiles/
 
 # Environment variables / secrets
 .env
+.instance.json
+.instance.tmp
+.tools/
+.venv/
+*.dump
+.ui-preview/

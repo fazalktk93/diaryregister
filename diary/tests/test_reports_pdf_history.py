@@ -4,13 +4,16 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from ..models import Diary, DiaryMovement
-from .. import views
+from unittest.mock import patch
 
 
 class ReportsPdfHistoryTests(TestCase):
     def setUp(self):
         User = get_user_model()
         self.user = User.objects.create_user(username="pdftester", password="pass")
+        from diary.models import Directorate, Membership
+        tenant = Directorate.objects.create(name='Administration', code='ADM')
+        Membership.objects.create(user=self.user, directorate=tenant, role='operator')
 
     def test_pdf_includes_movement_history_text(self):
         # Create a diary and movements with distinctive to_office strings
@@ -37,11 +40,11 @@ class ReportsPdfHistoryTests(TestCase):
 
         # Request the PDF for the diary's year
         self.client.force_login(self.user)
-        # Instead of parsing PDF bytes (compressed), call the internal data
-        # builder logic to assert the history text is present in the table data.
-        data = views._build_pdf_data_for_year(diary.year)
-        # last column of the first data row should be a Paragraph with plain text
-        # Note: data[0] is the header row, so check data[1]
+        # Inspect the actual report table, including the preserved destination history.
+        with patch('diary.v2_views.SimpleDocTemplate.build') as build:
+            response = self.client.get(reverse('reports_pdf', args=[diary.year]))
+        self.assertEqual(response.status_code, 200)
+        data = build.call_args.args[0][-1]._cellvalues
         row = data[1]
         hist_para = row[-1]
         # Paragraph has a getPlainText() helper
@@ -51,4 +54,4 @@ class ReportsPdfHistoryTests(TestCase):
         self.assertIn("OFFICE_PDF_C", text)
         # Header rename: ensure column label is 'Movement'
         header = data[0]
-        self.assertEqual(header[-1], "Movement")
+        self.assertEqual(header[-1].getPlainText(), "Movement")

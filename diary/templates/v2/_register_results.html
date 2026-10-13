@@ -1,0 +1,27 @@
+<div id="diary-list-results">
+  <div class="card">
+    <div class="table-toolbar">
+      <div><strong>{{ total }} matching entr{{ total|pluralize:'y,ies' }}</strong></div>
+      {% if report_mode %}<div class="d-flex gap-2"><a class="btn btn-info btn-sm" href="{% if report_year %}{% url 'reports_pdf' report_year %}{% else %}{% url 'report_pdf' %}{% endif %}?{{ filter_query }}">PDF report</a><a class="btn btn-info btn-sm" href="{% if report_year %}{% url 'reports_csv' report_year %}{% else %}{% url 'report_csv' %}{% endif %}?{{ filter_query }}">CSV export</a></div>{% else %}<a class="btn btn-info btn-sm" href="{% url 'reports_table' %}?{{ filter_query }}">Reports</a>{% endif %}
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead><tr><th>Diary No</th><th>Received No</th><th>Received from</th><th>Type</th><th>Folders</th><th>Subject</th><th>{% if report_mode %}Movement{% else %}Marked to{% endif %}</th>{% if not report_mode %}<th>Action</th>{% endif %}</tr></thead>
+        <tbody>
+          {% for diary in page_obj %}
+          <tr>
+            <td><a class="table-number" href="{% url 'diary_detail' diary.pk %}">{{ diary.diary_no }}</a><small class="d-block text-body-secondary mt-1">{{ diary.diary_date|date:'d-m-Y' }}</small></td>
+            <td>{{ diary.received_diary_no|default:'—' }}</td><td>{{ diary.received_from|default:'—' }}</td>
+            <td><span class="role-pill">{{ diary.file_letter }}{% if diary.service_included %} + Service Book{% endif %}</span></td>
+            <td>{% if diary.file_letter == 'File' %}{{ diary.no_of_folders }}{% else %}—{% endif %}</td>
+            <td class="subject">{{ diary.subject|truncatechars:180 }}{% if diary.remarks and not report_mode %}<small class="d-block text-body-secondary mt-1">{{ diary.remarks|truncatechars:80 }}</small>{% endif %}</td>
+            <td>{% if report_mode %}{{ diary.movement_history_plain }}{% else %}{{ diary.marked_to|default:'—' }}{% if diary.marked_date %}<small class="d-block text-body-secondary mt-1">{{ diary.marked_date|date:'d-m-Y' }}</small>{% endif %}{% endif %}</td>
+            {% if not report_mode %}<td><div class="d-flex gap-2"><a class="btn btn-info btn-sm" href="{% url 'diary_detail' diary.pk %}">View</a>{% if can_move %}<a class="btn btn-success btn-sm" href="{% url 'movement_add' diary.pk %}" data-modal-url="{% url 'movement_add' diary.pk %}" data-modal-title="Movement — diary {{ diary.diary_no }}">{% include 'v2/_icon.html' with name='arrow' %} Movement</a>{% endif %}</div></td>{% endif %}
+          </tr>
+          {% empty %}<tr><td colspan="8" class="empty-state">No entries match these filters.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% include 'v2/pagination.html' %}
+</div>

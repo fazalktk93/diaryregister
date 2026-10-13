@@ -1,0 +1,45 @@
+{% extends 'base.html' %}{% block title %}Diary {{ diary.diary_no }} | CDA Diary Register{% endblock %}
+{% block content %}
+<div class="page-heading diary-heading">
+  <div><h1>Diary {{ diary.diary_no }}</h1><p>Year {{ diary.year }}</p></div>
+  <div class="diary-actions" role="group" aria-label="Diary actions">
+    {% if can_move %}<a class="btn btn-success" href="{% url 'movement_add' diary.pk %}" data-modal-url="{% url 'movement_add' diary.pk %}" data-modal-title="Movement — diary {{ diary.diary_no }}">{% include 'v2/_icon.html' with name='arrow' %} Movement</a>{% endif %}
+    {% if can_edit %}<a class="btn btn-warning" href="{% url 'diary_edit' diary.pk %}" data-modal-url="{% url 'diary_edit' diary.pk %}" data-modal-title="Edit diary {{ diary.diary_no }}">{% include 'v2/_icon.html' with name='edit' %} Edit diary</a>{% endif %}
+    {% if can_delete %}<button class="btn btn-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteDiaryModal">Delete diary</button>{% endif %}
+  </div>
+</div>
+<div class="row g-3 diary-detail-grid">
+  <section class="col-lg-7" aria-labelledby="diary-information-title">
+    <div class="card h-100"><div class="card-header" id="diary-information-title">Diary information</div><div class="card-body p-4">
+      <dl class="diary-facts">
+        <dt>Diary date</dt><dd>{{ diary.diary_date|date:'d-m-Y' }}</dd>
+        <dt>Registered</dt><dd>{{ diary.created_at|date:'d-m-Y, h:i A' }}</dd>
+        <dt>Received reference</dt><dd>{{ diary.received_diary_no|default:'—' }}</dd>
+        <dt>Received from</dt><dd>{{ diary.received_from|default:'—' }}</dd>
+        <dt>Type</dt><dd><span class="role-pill">{{ diary.file_letter|default:'—' }}{% if diary.service_included %} + Service Book{% endif %}</span></dd>
+        <dt>Folders</dt><dd>{% if diary.file_letter == 'File' %}{{ diary.no_of_folders }}{% else %}—{% endif %}</dd>
+        <dt>Subject</dt><dd>{{ diary.subject|default:'—'|linebreaksbr }}</dd>
+        <dt>Destination</dt><dd>{{ diary.marked_to|default:'—' }}</dd>
+        <dt>Remarks</dt><dd>{{ diary.remarks|default:'—'|linebreaksbr }}</dd>
+        <dt>Registered by</dt><dd>{{ diary.created_by.get_full_name|default:diary.created_by.username }}</dd>
+      </dl>
+    </div></div>
+  </section>
+  <section class="col-lg-5" aria-labelledby="movement-history-title">
+    <div class="card h-100"><div class="card-header" id="movement-history-title">Movement history</div><div class="card-body p-4">
+      <ol class="movement-history">
+        {% for movement in movements %}<li>
+          <div class="history-date">{{ movement.action_datetime|date:'d-m-Y, h:i A' }}</div>
+          <div class="history-destination">{{ movement.to_office|default:'—' }}</div>
+          {% if movement.from_office %}<div class="history-from">From {{ movement.from_office }}</div>{% endif %}
+          {% if movement.remarks %}<div class="history-remarks">{{ movement.remarks|linebreaksbr }}</div>{% endif %}
+          <div class="history-author">Recorded by {{ movement.created_by.get_full_name|default:movement.created_by.username }}</div>
+        </li>{% empty %}<li class="history-empty">No movement recorded yet.</li>{% endfor %}
+      </ol>
+    </div></div>
+  </section>
+</div>
+{% if can_delete %}
+<div class="modal fade" id="deleteDiaryModal" tabindex="-1" aria-labelledby="deleteDiaryTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content"><div class="modal-header delete-modal-header"><h2 class="modal-title" id="deleteDiaryTitle">Delete diary {{ diary.diary_no }}?</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><p class="small mb-3">This removes the diary from the active register. Its original number and history are retained.</p><form method="post" action="{% url 'diary_delete' diary.pk %}">{% csrf_token %}<div class="d-flex justify-content-end gap-2"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-danger">Delete diary</button></div></form></div></div></div></div>
+{% endif %}
+{% endblock %}

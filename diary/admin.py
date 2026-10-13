@@ -1,46 +1,53 @@
+"""Business mutations use the audited app; Django Admin is read-only."""
 from django.contrib import admin
-from .models import Diary, DiaryMovement, Office
+from django.contrib.auth.models import User, Group
+from .access import membership_for
+from .models import Diary, DiaryMovement, Office, Directorate, Membership, AuditLog, DirectorateSettings
+
+for model in (User, Group):
+    if admin.site.is_registered(model):
+        admin.site.unregister(model)
 
 
-class DiaryMovementInline(admin.TabularInline):
-    model = DiaryMovement
-    extra = 0
-    readonly_fields = ("created_by", "created_on")
-    show_change_link = True
-    ordering = ("action_datetime", "id")
+class ReadOnlyAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        member = membership_for(request.user)
+        return bool(member and (member.role == 'system' or member.directorate and member.directorate.is_active))
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        member = membership_for(request.user)
+        if not member:
+            return qs.none()
+        if self.model == AuditLog and member.role == 'system':
+            return qs.exclude(action__startswith='diary.')
+        if self.model in (Directorate, Membership, DirectorateSettings) and member.role == 'system':
+            return qs
+        if not member.directorate_id or not member.directorate.is_active:
+            return qs.none()
+        if self.model == DiaryMovement:
+            return qs.filter(diary__directorate_id=member.directorate_id)
+        if self.model == Directorate:
+            return qs.filter(pk=member.directorate_id)
+        return qs.filter(directorate_id=member.directorate_id)
 
 
-@admin.register(Diary)
-class DiaryAdmin(admin.ModelAdmin):
-    list_display = ("diary_no", "diary_date", "received_from", "marked_to", "status", "created_by")
-    search_fields = ("subject", "received_from", "received_diary_no", "marked_to")
-    list_filter = ("year", "status", "diary_date")
-    inlines = [DiaryMovementInline]
-
-    # ✅ Additive admin improvements
-    date_hierarchy = "diary_date"
-    ordering = ("-year", "-sequence")
-    list_select_related = ("created_by",)
-
-    # Keep existing admin behavior; just protect system fields from accidental edits
-    readonly_fields = ("year", "sequence", "created_by", "created_at")
+for model in (Diary, DiaryMovement, Office, Directorate, Membership, DirectorateSettings):
+    admin.site.register(model, ReadOnlyAdmin)
 
 
-@admin.register(DiaryMovement)
-class DiaryMovementAdmin(admin.ModelAdmin):
-    list_display = ("diary", "action_type", "from_office", "to_office", "action_datetime", "created_by")
-    list_filter = ("action_type", "action_datetime")
-    search_fields = ("from_office", "to_office", "remarks")
-
-    # ✅ Additive admin improvements
-    date_hierarchy = "action_datetime"
-    ordering = ("-action_datetime", "-id")
-    list_select_related = ("diary", "created_by")
-
-
-# ✅ Add: manage offices for autocomplete / normalization
-@admin.register(Office)
-class OfficeAdmin(admin.ModelAdmin):
-    list_display = ("name",)
-    search_fields = ("name",)
-    ordering = ("name",)
+@admin.register(AuditLog)
+class AuditAdmin(ReadOnlyAdmin):
+    list_display = ['timestamp', 'user', 'directorate', 'action', 'record_id']
+    def has_view_permission(self, request, obj=None):
+        member = membership_for(request.user)
+        return bool(member and member.role in ('system', 'admin', 'auditor'))

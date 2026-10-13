@@ -3,16 +3,76 @@ from __future__ import annotations
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models import Max
 from django.utils import timezone
 from django.utils.html import format_html
 
 
+def format_diary_number(sequence):
+    return f'{sequence:05d}'
+
+
+class Directorate(models.Model):
+    name = models.CharField(max_length=255)
+    code = models.SlugField(max_length=32, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Membership(models.Model):
+    class Role(models.TextChoices):
+        SYSTEM = 'system', 'System Administrator'
+        ADMIN = 'admin', 'Directorate Administrator'
+        OPERATOR = 'operator', 'Data Entry Operator'
+        VIEWER = 'viewer', 'Viewer'
+        AUDITOR = 'auditor', 'Auditor'
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='membership')
+    directorate = models.ForeignKey(Directorate, null=True, blank=True, on_delete=models.PROTECT)
+    role = models.CharField(max_length=16, choices=Role.choices)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(role='system') | models.Q(directorate__isnull=False), name='ordinary_user_has_directorate')]
+
+
+class DirectorateSettings(models.Model):
+    directorate = models.OneToOneField(Directorate, on_delete=models.CASCADE)
+    report_title = models.CharField(max_length=255, blank=True)
+
+
+class DiaryCounter(models.Model):
+    directorate = models.ForeignKey(Directorate, on_delete=models.PROTECT)
+    year = models.PositiveIntegerField()
+    value = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['directorate', 'year'], name='uniq_counter_directorate_year')]
+
+
+class AuditLog(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    directorate = models.ForeignKey(Directorate, null=True, on_delete=models.PROTECT)
+    action = models.CharField(max_length=64)
+    record_id = models.CharField(max_length=64, blank=True)
+    changes = models.JSONField(default=dict)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ip = models.GenericIPAddressField(null=True)
+
+
+class LoginAttempt(models.Model):
+    key = models.CharField(max_length=64, unique=True)
+    failures = models.PositiveIntegerField(default=0)
+    started = models.DateTimeField(default=timezone.now)
+
+
 class Office(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    directorate = models.ForeignKey('Directorate', null=True, on_delete=models.PROTECT)
+    name = models.CharField(max_length=255)
 
     class Meta:
         ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=['directorate', 'name'], name='uniq_office_directorate_name')]
         indexes = [
             models.Index(fields=["name"]),
         ]
@@ -22,6 +82,8 @@ class Office(models.Model):
 
 
 class Diary(models.Model):
+    directorate = models.ForeignKey('Directorate', null=True, on_delete=models.PROTECT)
+    archived = models.BooleanField(default=False)
     class Status(models.TextChoices):
         PENDING = "Pending", "Pending"
         CREATED = "Created", "Created"
@@ -58,10 +120,11 @@ class Diary(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["year", "sequence"], name="uniq_diary_year_seq"),
+            models.UniqueConstraint(fields=["directorate", "year", "sequence"], name="uniq_directorate_year_seq"),
         ]
         ordering = ["-year", "-sequence"]
         indexes = [
+            models.Index(fields=['directorate', 'year', 'created_at']),
             models.Index(fields=["year", "sequence"]),
             models.Index(fields=["diary_date"]),
             models.Index(fields=["status"]),
@@ -77,12 +140,12 @@ class Diary(models.Model):
 
     @property
     def diary_no(self) -> str:
-        return f"{self.year}-{self.sequence:06d}"
+        return format_diary_number(self.sequence)
 
     @property
     def diary_no_short(self) -> str:
         """Compact diary number used for reports: no zero-padding on sequence."""
-        return f"{self.year}-{self.sequence}"
+        return self.diary_no
 
     def movement_history_html(self) -> str:
         """
@@ -90,7 +153,7 @@ class Diary(models.Model):
         - older destinations struck-through
         - last destination plain text
         """
-        mvs = list(self.movements.all().order_by("action_datetime", "id"))
+        mvs = sorted(self.movements.all(), key=lambda movement: (movement.action_datetime, movement.pk))
         if not mvs:
             return "-"
 
@@ -123,7 +186,7 @@ class Diary(models.Model):
         formatting is undesirable. Older entries are left as plain text but
         are not struck-through; entries are joined with ' / '.
         """
-        mvs = list(self.movements.all().order_by("action_datetime", "id"))
+        mvs = sorted(self.movements.all(), key=lambda movement: (movement.action_datetime, movement.pk))
         if not mvs:
             return "-"
 
@@ -145,36 +208,40 @@ class Diary(models.Model):
     def save(self, *args, **kwargs):
         # Keep offices recorded (optional but very useful)
         if self.received_from and self.received_from.strip():
-            Office.objects.get_or_create(name=self.received_from.strip())
+            Office.objects.get_or_create(directorate=self.directorate, name=self.received_from.strip())
         if self.marked_to and self.marked_to.strip():
-            Office.objects.get_or_create(name=self.marked_to.strip())
+            Office.objects.get_or_create(directorate=self.directorate, name=self.marked_to.strip())
         super().save(*args, **kwargs)
 
     @classmethod
     def create_with_next_number(cls, *, created_by, **fields) -> "Diary":
         """
-        Safely creates a diary with the next sequence number for a year.
-        Uses an atomic transaction + select_for_update lock on the year rows.
+        Allocate using a unique directorate/year counter row locked until commit.
+        get_or_create handles concurrent initialization of the first year's row.
         """
         fields = dict(fields)  # make mutable copy
 
         today = timezone.localdate()
-        raw_year = fields.pop("year", None)
-        year = int(raw_year) if raw_year else today.year
+        from .access import membership_for
+        membership = membership_for(created_by)
+        if not membership or membership.role not in ('admin', 'operator') or not membership.directorate_id or not membership.directorate.is_active:
+            raise ValidationError('An active directorate membership is required.')
+        fields.pop('directorate', None)
+        fields.pop('year', None)
+        year = today.year
 
         with transaction.atomic():
-            last_seq = (
-                cls.objects.select_for_update()
-                .filter(year=year)
-                .aggregate(m=Max("sequence"))
-                .get("m")
-            )
-            next_seq = (last_seq or 0) + 1
+            counter, _ = DiaryCounter.objects.get_or_create(directorate=membership.directorate, year=year)
+            counter = DiaryCounter.objects.select_for_update().get(pk=counter.pk)
+            counter.value += 1
+            counter.save(update_fields=['value'])
+            next_seq = counter.value
 
             diary = cls.objects.create(
                 year=year,
                 sequence=next_seq,
                 created_by=created_by,
+                directorate=membership.directorate,
                 **fields,
             )
 
@@ -227,10 +294,10 @@ class DiaryMovement(models.Model):
 
         # ✅ ADDITIVE: record offices automatically for autocomplete / indexing
         if self.from_office and self.from_office.strip():
-            Office.objects.get_or_create(name=self.from_office.strip())
+            Office.objects.get_or_create(directorate=self.diary.directorate, name=self.from_office.strip())
 
         if self.to_office and self.to_office.strip():
-            Office.objects.get_or_create(name=self.to_office.strip())
+            Office.objects.get_or_create(directorate=self.diary.directorate, name=self.to_office.strip())
 
         super().save(*args, **kwargs)
 
