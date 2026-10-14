@@ -134,7 +134,7 @@
       const fromOffice = modalBody.querySelector('#id_from_office');
       if (fromOffice) fromOffice.value = link.dataset.fromOffice || '';
       const movementDate = modalBody.querySelector('#id_action_datetime');
-      if (movementDate) movementDate.value = `${parts.day}-${parts.month}-${parts.year} ${parts.hour}:${parts.minute}`;
+      if (movementDate) movementDate.value = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
       initForm(modalBody);
       bootstrap.Modal.getOrCreateInstance(modalEl).show();
       return;

@@ -334,7 +334,7 @@ class IsolationTests(TestCase):
     def test_register_and_reports_have_different_actions(self):
         register = self.client.get(reverse('diary_list'))
         reports = self.client.get(reverse('reports_table'))
-        self.assertContains(register, 'Add diary')
+        self.assertContains(register, 'data-instant-form="diary"', count=1)
         self.assertContains(register, '>Reports</a>')
         self.assertContains(reports, 'Generate report')
         self.assertContains(reports, 'PDF report')
@@ -381,6 +381,7 @@ class IsolationTests(TestCase):
 
     def test_detail_history_is_visible_with_header_actions(self):
         self.client.post(reverse('movement_add', args=[self.diary.pk]), {'to_office': 'History destination', 'remarks': 'Visible history remark'})
+        self.client.force_login(self.admin)
         response = self.client.get(reverse('diary_detail', args=[self.diary.pk]))
         self.assertContains(response, 'id="movement-history-title"')
         self.assertContains(response, 'History destination')
@@ -397,17 +398,74 @@ class IsolationTests(TestCase):
         self.assertNotContains(response, 'data-modal-title="Edit diary')
         self.assertContains(response, '>View</a>')
 
-    def test_operator_can_edit_move_and_delete_own_diary(self):
+    def test_operator_can_edit_move_but_cannot_delete_own_diary(self):
         self.assertTrue(self.operator.has_perm('diary.change_diary'))
         self.assertTrue(self.operator.has_perm('diary.add_diarymovement'))
-        self.assertTrue(self.operator.has_perm('diary.delete_diary'))
+        self.assertFalse(self.operator.has_perm('diary.delete_diary'))
         detail = self.client.get(reverse('diary_detail', args=[self.diary.pk]))
         self.assertContains(detail, 'Edit diary')
-        self.assertContains(detail, 'Delete diary')
-        self.assertEqual(self.client.post(reverse('diary_delete', args=[self.foreign.pk])).status_code, 404)
-        self.assertEqual(self.client.post(reverse('diary_delete', args=[self.diary.pk])).status_code, 302)
+        self.assertNotContains(detail, 'Delete diary')
+        self.assertEqual(self.client.post(reverse('diary_delete', args=[self.foreign.pk])).status_code, 403)
+        self.assertEqual(self.client.post(reverse('diary_delete', args=[self.diary.pk])).status_code, 403)
         self.diary.refresh_from_db()
-        self.assertTrue(self.diary.archived)
+        self.assertFalse(self.diary.archived)
+
+    def test_operator_cannot_delete_even_with_stale_direct_permission(self):
+        from django.contrib.auth.models import Permission
+        self.operator.user_permissions.add(Permission.objects.get(content_type__app_label='diary', codename='delete_diary'))
+        self.assertEqual(self.client.post(reverse('diary_delete', args=[self.diary.pk])).status_code, 403)
+        self.diary.refresh_from_db()
+        self.assertFalse(self.diary.archived)
+
+    def test_movement_authors_are_visible_only_to_directorate_admin(self):
+        self.client.post(reverse('movement_add', args=[self.diary.pk]), {'to_office': 'Next office'})
+        for user in [self.operator, self.viewer, self.auditor]:
+            self.client.force_login(user)
+            response = self.client.get(reverse('diary_detail', args=[self.diary.pk]))
+            self.assertContains(response, 'Next office')
+            self.assertNotContains(response, 'history-author')
+            self.assertNotContains(response, 'Recorded by')
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse('diary_detail', args=[self.diary.pk])), 'Recorded by operator')
+
+    def test_staff_operator_cannot_reveal_movement_authors_through_django_admin(self):
+        self.client.post(reverse('movement_add', args=[self.diary.pk]), {'to_office': 'Next office'})
+        self.operator.is_staff = True
+        self.operator.save(update_fields=['is_staff'])
+        movement = self.diary.movements.get()
+        response = self.client.get(reverse('admin:diary_diarymovement_change', args=[movement.pk]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_movement_date_can_be_changed_and_invalid_dates_are_rejected(self):
+        response = self.client.get(reverse('movement_add', args=[self.diary.pk]))
+        self.assertFalse(response.context['form'].fields['action_datetime'].disabled)
+        self.assertEqual(response.context['form'].fields['action_datetime'].widget.input_type, 'datetime-local')
+        chosen = '2026-09-18T14:35'
+        response = self.client.post(reverse('movement_add', args=[self.diary.pk]),
+            {'to_office': 'Backdated office', 'action_datetime': chosen}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 200)
+        movement = self.diary.movements.get()
+        self.assertEqual(timezone.localtime(movement.action_datetime).strftime('%Y-%m-%dT%H:%M'), chosen)
+        self.diary.refresh_from_db()
+        self.assertEqual(self.diary.marked_date, date(2026, 9, 18))
+        invalid = self.client.post(reverse('movement_add', args=[self.diary.pk]),
+            {'to_office': 'Invalid office', 'action_datetime': 'not-a-date'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(invalid.status_code, 422)
+        self.assertEqual(self.diary.movements.count(), 1)
+
+    def test_sync_roles_removes_legacy_operator_delete_and_is_idempotent(self):
+        from django.contrib.auth.models import Group, Permission
+        from django.core.management import call_command
+        permission = Permission.objects.get(content_type__app_label='diary', codename='delete_diary')
+        group = Group.objects.get(name='CDA operator')
+        group.permissions.add(permission)
+        Group.objects.get(name='CDA admin').permissions.remove(permission)
+        call_command('sync_roles', stdout=io.StringIO())
+        self.assertFalse(group.permissions.filter(pk=permission.pk).exists())
+        self.assertTrue(Group.objects.get(name='CDA admin').permissions.filter(pk=permission.pk).exists())
+        audits = AuditLog.objects.filter(action='roles.register_permissions.updated').count()
+        call_command('sync_roles', stdout=io.StringIO())
+        self.assertEqual(AuditLog.objects.filter(action='roles.register_permissions.updated').count(), audits)
 
     def test_movement_is_scoped_audited_and_updates_destination(self):
         headers = {'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest'}

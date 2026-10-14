@@ -195,7 +195,9 @@ def diary_create(request):
 @require_roles(*READ)
 def diary_detail(request, pk):
     diary = get_object_or_404(scoped_diaries(request.user, request=request), pk=pk)
-    movements = diary.movements.select_related('created_by').order_by('-action_datetime', '-pk')
+    movements = diary.movements.order_by('-action_datetime', '-pk')
+    if request.membership.role == 'admin':
+        movements = movements.select_related('created_by')
     return render(request, 'v2/detail.html', {'diary': diary, 'movements': movements})
 
 
@@ -239,7 +241,7 @@ def diary_edit(request, pk):
     return form_response(request, form, f'Edit diary {diary.diary_no}')
 
 
-@require_roles('admin', 'operator')
+@require_roles('admin')
 @require_POST
 @transaction.atomic
 def diary_delete(request, pk):
