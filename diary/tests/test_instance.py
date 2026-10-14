@@ -2,12 +2,48 @@ import json
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
 from django.test import SimpleTestCase
 from config import instance
 
 
 class InstanceConfigurationTests(SimpleTestCase):
+    def test_local_wizard_creates_missing_database_and_stores_only_nonsecrets(self):
+        import setup_instance
+        import psycopg2
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / '.instance.json'
+            backend, maintenance, verified = Mock(), MagicMock(), MagicMock()
+            with patch.object(setup_instance, 'CONFIG_PATH', path), patch.object(setup_instance, 'read_config', return_value={}), \
+                    patch.object(setup_instance, 'secret_store', return_value=backend), \
+                    patch.object(setup_instance, 'credential', return_value='existing-test-signing-key'), \
+                    patch('builtins.input', side_effect=[''] * 8), patch('getpass.getpass', return_value='hidden-test-password'), \
+                    patch('psycopg2.connect', side_effect=[psycopg2.OperationalError('database "diaryregister" does not exist'), maintenance, verified]):
+                setup_instance.main(local=True, create_database=True, app_settings=True)
+            config = json.loads(path.read_text())
+            self.assertEqual(config['database']['host'], '127.0.0.1')
+            self.assertEqual(config['database']['sslmode'], 'prefer')
+            self.assertEqual(config['port'], 8000)
+            self.assertIn('127.0.0.1', config['allowed_hosts'])
+            self.assertNotIn('hidden-test-password', path.read_text())
+            self.assertTrue(maintenance.autocommit)
+            maintenance.cursor.return_value.__enter__.return_value.execute.assert_called_once()
+            backend.set_password.assert_any_call(config['credential_service'], 'DB_PASSWORD', 'hidden-test-password')
+            backend.set_password.assert_any_call(config['credential_service'], 'DJANGO_SECRET_KEY', 'existing-test-signing-key')
+
+    def test_missing_remote_database_is_never_created_by_local_wizard_flag(self):
+        import setup_instance
+        import psycopg2
+        with patch.object(setup_instance, 'read_config', return_value={}), \
+                patch('builtins.input', side_effect=['remote.example', '', '', '', '']), \
+                patch('getpass.getpass', return_value='test-password'), \
+                patch('psycopg2.connect', side_effect=psycopg2.OperationalError('database "postgres" does not exist')) as connect, \
+                patch.object(setup_instance, 'secret_store') as backend:
+            with self.assertRaises(SystemExit):
+                setup_instance.main(create_database=True)
+            self.assertEqual(connect.call_count, 1)
+            backend.assert_not_called()
+
     def test_database_diagnostic_classifies_failure_without_exposing_secrets(self):
         from config.database_errors import connection_failure_message
         for raw, expected in [

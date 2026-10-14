@@ -13,20 +13,20 @@ Windows uses Credential Manager through `keyring`. Linux requires an unlocked Se
 From the repository directory:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\setup_windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\windows_app.ps1 -Action Setup
 ```
 
-The script creates `.venv`, installs dependencies, runs one-time setup if needed, checks connectivity, applies schema migrations, collects static files and prompts for the first System Administrator. Passwords are hidden and validated; there are no default passwords. Setup does not open firewall ports or schedule background tasks.
+The guided wizard creates `.venv`, installs dependencies, prompts for database and app settings, can create a missing local database, optionally imports the historical SQLite backup, applies migrations and collects static files. It creates the first System Administrator only if no administrator exists. Passwords are hidden and stored in the OS credential store. It can install a startup task and start the app. See [WINDOWS_APP.md](WINDOWS_APP.md) for prompts, log locations and startup modes. `setup_windows.ps1` is a compatibility shortcut to this wizard.
 
 Start future sessions with:
 
-```bat
-start_windows.bat
+```powershell
+.\windows_app.ps1 -Action Start
 ```
 
-Waitress binds to `127.0.0.1:8000` by default. Visit `http://127.0.0.1:8000/login/`. Stop with Ctrl+C. The old setup wrappers were removed; use `setup_windows.ps1` for installation and `start_windows.bat` for subsequent launches.
+Waitress binds to `127.0.0.1:8000` by default. Visit `http://127.0.0.1:8000/login/`. Use `windows_app.ps1 -Action Stop`, `Restart` or `Status` to manage it. `start_windows.bat` remains available for a foreground server stopped with Ctrl+C.
 
-Optionally create a Windows Task Scheduler **at logon** task running `.venv\Scripts\python.exe` with argument `serve.py` and the repository as working directory. Use the same Windows account whose Credential Manager contains the secrets. Service deployment is optional and requires an account-specific secret-store setup. No scheduled task is created automatically.
+The wizard offers a Windows Task Scheduler task **at logon**, or optionally **at boot** using the same Windows account whose Credential Manager contains the secrets. Use `windows_app.ps1 -Action InstallTask` to install it separately and `RemoveTask` to stop/remove it. Scheduled startup is configured only when you choose it in the wizard or invoke InstallTask.
 
 ## One-time configuration and moving servers
 
@@ -110,4 +110,4 @@ Remove-Item Env:DIARY_TEST_SQLITE
 - Missing styles: Bootstrap assets currently use jsDelivr; network access to that CDN is required. For an offline deployment vendor Bootstrap 5.3.3 locally and update the two asset references in `base.html`.
 - Startup reports unapplied migrations: run setup/migrate against the fresh target database, then restart.
 
-Historical SQLite files remain untouched. Future migration should be a separate reviewed import into a staging PostgreSQL database: explicitly map records/users/offices to directorates, preserve original year/sequence/history, detect duplicate tenant/year/sequence values, and seed counters to each imported maximum before accepting new registrations. New directorate fields are nullable only to keep this technically possible; unassigned records are never visible through application queries. This task does not import or renumber historical records.
+For the original single-workspace SQLite backup, use the dedicated local import script documented in [IMPORT_SQLITE.md](IMPORT_SQLITE.md). It maps all imported users and records to Administration, preserves history and numbering, and seeds yearly counters. It requires an empty local PostgreSQL target and does not modify the source backup. Unassigned records remain excluded from normal application queries.

@@ -1,4 +1,5 @@
 from pathlib import Path
+from hashlib import sha256
 import os
 
 from .instance import read_config, credential, database_config
@@ -13,7 +14,7 @@ INSTANCE = read_config()
 SECRET_KEY = credential('DJANGO_SECRET_KEY', INSTANCE) or secrets.token_urlsafe(64)
 DEBUG = env("DJANGO_DEBUG", "0") == "1"
 
-ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
+ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", ','.join(INSTANCE.get('allowed_hosts', ['127.0.0.1', 'localhost']))).split(",") if h.strip()]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -65,6 +66,8 @@ CACHES = {
     'diary_data': {
         'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
         'LOCATION': BASE_DIR / '.cache' / 'diary-data',
+        'KEY_PREFIX': sha256(repr(tuple(DATABASES['default'].get(key, '')
+            for key in ('ENGINE', 'HOST', 'PORT', 'NAME'))).encode()).hexdigest()[:16],
         'TIMEOUT': 60,
         'OPTIONS': {'MAX_ENTRIES': 2000},
     },
