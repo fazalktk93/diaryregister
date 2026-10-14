@@ -11,6 +11,7 @@ A Django diary register for isolated CDA directorates, preserving the original d
 - Sliding desktop sidebar and mobile drawer; diary/user/directorate forms open in modals. Live register search preserves the original quick-entry flow. Add/Save, Cancel, View/Search and Edit actions use green, red, blue and amber accents with text labels.
 - Add diary and Movement forms open from the loaded page. Modal saves confirm after the transaction succeeds and refresh displayed records in the background without a full-page reload. Office registration uses a single conflict-safe batch, retaining automatic office choices and tenant isolation.
 - One-time PostgreSQL configuration and OS-backed secrets; Waitress on Windows and optional Gunicorn on Linux.
+- Guided [Windows setup and startup manager](WINDOWS_APP.md) with local database creation, optional historical import, automatic sign-in/boot startup, process controls and logs.
 
 Each ordinary user has one directorate. Server-side membership determines every diary query; browser-supplied directorate IDs are ignored. Disabled directorates cannot access diaries. System administrators manage accounts/directorates without automatic access to diary records. Django Admin is read-only and scoped; all business changes use the audited application interface.
 
