@@ -67,6 +67,12 @@ class IsolationTests(TestCase):
             callback = resolve(reverse(name, args=args)).func
             self.assertNotIn('default', getattr(callback, '_non_atomic_requests', set()))
 
+    def test_lan_server_host_is_accepted_and_unknown_host_returns_400(self):
+        with override_settings(ALLOWED_HOSTS=['127.0.0.1', '192.168.1.25']):
+            self.client.logout()
+            self.assertEqual(self.client.get(reverse('login'), HTTP_HOST='192.168.1.25:8000').status_code, 200)
+            self.assertEqual(self.client.get(reverse('login'), HTTP_HOST='192.168.1.99:8000').status_code, 400)
+
     def test_registration_batches_offices_and_reuses_membership_and_counter_lock(self):
         with CaptureQueriesContext(connection) as queries:
             response = self.client.post(reverse('diary_create'), self.data(received_from='Source office'),

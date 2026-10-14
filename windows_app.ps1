@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Setup', 'Start', 'Stop', 'Restart', 'Status', 'InstallTask', 'RemoveTask', 'Run')]
+    [ValidateSet('Setup', 'ConfigureNetwork', 'Start', 'Stop', 'Restart', 'Status', 'InstallTask', 'RemoveTask', 'Run')]
     [string]$Action = 'Setup',
     [ValidateSet('Logon', 'Boot')][string]$StartupMode = 'Logon',
     [ValidatePattern('^[a-zA-Z0-9 ._-]+$')][string]$TaskName,
@@ -246,6 +246,12 @@ function Setup-App {
 try {
     switch ($Action) {
         'Setup' { Setup-App }
+        'ConfigureNetwork' {
+            Stop-App
+            Use-SavedEnvironment
+            Invoke-Checked $pythonPath @('setup_instance.py', '--network-only')
+            Start-App
+        }
         'Run' { Run-App }
         'Start' { Start-App }
         'Stop' { Stop-App }
