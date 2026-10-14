@@ -31,7 +31,7 @@
     <a class="nav-item {% if active_route == 'reports_table' or active_route == 'diary_year_report' %}active{% endif %}" href="{% url 'reports_table' %}">{% include 'v2/_icon.html' with name='chart' %}<span>Reports</span></a>
     <a class="nav-item {% if active_route == 'directory' %}active{% endif %}" href="{% url 'directory' %}">{% include 'v2/_icon.html' with name='building' %}<span>Office directory</span></a>
     {% endif %}
-    {% if can_write %}<a class="sidebar-add" href="{% url 'diary_create' %}" data-modal-url="{% url 'diary_create' %}" data-modal-title="Register diary">{% include 'v2/_icon.html' with name='plus' %}<span>Add new diary</span></a>{% endif %}
+    {% if can_write %}<a class="sidebar-add" href="{% url 'diary_create' %}" data-modal-url="{% url 'diary_create' %}" data-instant-form="diary" data-modal-title="Register diary">{% include 'v2/_icon.html' with name='plus' %}<span>Add new diary</span></a>{% endif %}
     {% if can_manage %}<div class="nav-section-label mt-4">ADMINISTRATION</div><a class="nav-item {% if active_route == 'users' or active_route == 'user_create' or active_route == 'user_edit' %}active{% endif %}" href="{% url 'users' %}">{% include 'v2/_icon.html' with name='users' %}<span>User management</span></a>{% endif %}
     {% if account_membership.role == 'system' %}<a class="nav-item {% if active_route == 'directorates' %}active{% endif %}" href="{% url 'directorates' %}">{% include 'v2/_icon.html' with name='building' %}<span>Directorates</span></a>{% endif %}
     {% if account_membership.role == 'admin' %}<a class="nav-item {% if active_route == 'directorate_settings' %}active{% endif %}" href="{% url 'directorate_settings' %}">{% include 'v2/_icon.html' with name='settings' %}<span>Directorate settings</span></a>{% endif %}
@@ -55,6 +55,8 @@
 {% if user.is_authenticated %}</div>{% else %}<footer class="auth-footer">Capital Development Authority &middot; Diary Register</footer>{% endif %}
 {% if user.is_authenticated %}
 <div class="modal fade" id="actionModal" tabindex="-1" aria-labelledby="actionModalTitle" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><div><h2 class="modal-title" id="actionModalTitle">Register diary</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div id="actionModalBody" class="modal-body" aria-live="polite"></div></div></div></div>
+{% if instant_diary_form %}<template id="instant-diary-form" data-time-zone="{{ ui_time_zone }}">{% include 'v2/_form.html' with form=instant_diary_form offices=instant_offices in_modal=True is_diary_form=True is_movement_form=False %}</template>{% endif %}
+{% if instant_movement_form and can_move %}<template id="instant-movement-form" data-time-zone="{{ ui_time_zone }}">{% include 'v2/_form.html' with form=instant_movement_form offices=instant_offices in_modal=True is_diary_form=False is_movement_form=True %}</template>{% endif %}
 {% endif %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{% static 'diary/js/app.js' %}?v={{ ui_asset_version }}" defer></script>

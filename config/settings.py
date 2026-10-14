@@ -59,6 +59,17 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {'default': database_config(INSTANCE)}
 
+# Shared by local worker processes; no extra service or database queries needed.
+CACHES = {
+    'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
+    'diary_data': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': BASE_DIR / '.cache' / 'diary-data',
+        'TIMEOUT': 60,
+        'OPTIONS': {'MAX_ENTRIES': 2000},
+    },
+}
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

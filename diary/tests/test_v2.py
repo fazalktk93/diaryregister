@@ -6,11 +6,13 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.core.cache import caches
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connection, connections, IntegrityError, transaction
 from django.test import TestCase, TransactionTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.urls import resolve
 from django.utils import timezone
 from diary.access import scoped_diaries
 from diary.models import Directorate, DirectorateSettings, Membership, Diary, DiaryCounter, AuditLog
@@ -24,9 +26,12 @@ def account(username, directorate=None, role='operator'):
     return user
 
 
-@override_settings(PASSWORD_HASHERS=['django.contrib.auth.hashers.MD5PasswordHasher'], STATIC_ROOT=None)
+@override_settings(PASSWORD_HASHERS=['django.contrib.auth.hashers.MD5PasswordHasher'], STATIC_ROOT=None,
+    CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
+        'diary_data': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'isolated-v2-tests'}})
 class IsolationTests(TestCase):
     def setUp(self):
+        caches['diary_data'].clear()
         self.a = Directorate.objects.create(name='Administration', code='ADM')
         self.b = Directorate.objects.create(name='Finance', code='FIN')
         self.operator = account('operator', self.a)
@@ -52,6 +57,44 @@ class IsolationTests(TestCase):
         self.assertEqual(sum('from "diary_membership"' in sql for sql in selects), 1)
         self.assertEqual(sum('count(' in sql and 'from "diary_diary"' in sql for sql in selects), 1)
         self.assertFalse(any('from "diary_diarymovement"' in sql for sql in selects))
+
+    def test_read_routes_skip_transactions_but_write_routes_keep_them(self):
+        for name, args in [('dashboard', []), ('diary_list', []), ('diary_detail', [self.diary.pk]),
+                           ('directory', []), ('login', [])]:
+            callback = resolve(reverse(name, args=args)).func
+            self.assertIn('default', callback._non_atomic_requests)
+        for name, args in [('diary_create', []), ('movement_add', [self.diary.pk]), ('diary_edit', [self.diary.pk])]:
+            callback = resolve(reverse(name, args=args)).func
+            self.assertNotIn('default', getattr(callback, '_non_atomic_requests', set()))
+
+    def test_registration_batches_offices_and_reuses_membership_and_counter_lock(self):
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.post(reverse('diary_create'), self.data(received_from='Source office'),
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 200)
+        sql = [query['sql'].lower() for query in queries]
+        self.assertEqual(sum('select' in query and 'from "diary_membership"' in query for query in sql), 1)
+        self.assertEqual(sum('select' in query and 'from "diary_diarycounter"' in query for query in sql), 1)
+        self.assertFalse(any('select' in query and 'from "diary_office"' in query for query in sql))
+        self.assertEqual(sum('insert' in query and '"diary_office"' in query for query in sql), 1)
+        from diary.models import Office
+        self.assertTrue(Office.objects.filter(directorate=self.a, name='Source office').exists())
+        self.assertTrue(Office.objects.filter(directorate=self.a, name='Destination').exists())
+
+    def test_movement_registers_offices_once_and_preserves_dashboard_cache(self):
+        from diary.data_cache import dashboard_summary, generation_key, office_choices
+        dashboard_summary(scoped_diaries(self.operator), self.a.pk, self.diary.year, timezone.localdate())
+        office_choices(self.a.pk)
+        original = caches['diary_data'].get(generation_key('dashboard', self.a.pk))
+        with self.captureOnCommitCallbacks(execute=True), CaptureQueriesContext(connection) as queries:
+            response = self.client.post(reverse('movement_add', args=[self.diary.pk]), {'to_office': 'New destination'},
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 200)
+        sql = [query['sql'].lower() for query in queries]
+        self.assertFalse(any('select' in query and 'from "diary_office"' in query for query in sql))
+        self.assertEqual(sum('insert' in query and '"diary_office"' in query for query in sql), 1)
+        self.assertEqual(caches['diary_data'].get(generation_key('dashboard', self.a.pk)), original)
+        self.assertIn({'name': 'New destination'}, office_choices(self.a.pk))
 
     def test_dashboard_combines_kpis_without_changing_counts(self):
         with CaptureQueriesContext(connection) as queries:
@@ -191,7 +234,8 @@ class IsolationTests(TestCase):
         self.assertIn('Registered safely', response.json()['html'])
         self.assertIn('destination', response.json()['html'])
         response = self.client.post(reverse('diary_create'), self.data(), **headers)
-        self.assertEqual(response.json(), {'success': True})
+        self.assertTrue(response.json()['success'])
+        self.assertTrue(response.json()['message'])
         self.assertEqual(Diary.objects.get(subject='Registered safely').directorate_id, self.a.pk)
 
     def test_modal_requests_cannot_bypass_role_or_tenant(self):
@@ -206,7 +250,8 @@ class IsolationTests(TestCase):
         response = self.client.get(reverse('user_create'), **headers)
         self.assertContains(response, 'data-modal-form')
         response = self.client.post(reverse('user_create'), {'username': 'modaluser', 'role': 'operator', 'directorate': self.b.pk, 'password': 'A-Strong-Password-938!', 'is_active': True}, **headers)
-        self.assertEqual(response.json(), {'success': True})
+        self.assertTrue(response.json()['success'])
+        self.assertTrue(response.json()['message'])
         self.assertEqual(get_user_model().objects.get(username='modaluser').membership.directorate_id, self.a.pk)
 
     def test_csv_isolation_number_and_formula_escaping(self):
@@ -361,7 +406,8 @@ class IsolationTests(TestCase):
     def test_movement_is_scoped_audited_and_updates_destination(self):
         headers = {'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest'}
         response = self.client.post(reverse('movement_add', args=[self.diary.pk]), {'to_office': 'New Office', 'remarks': 'Movement note', 'from_office': 'Forged origin'}, **headers)
-        self.assertEqual(response.json(), {'success': True})
+        self.assertTrue(response.json()['success'])
+        self.assertTrue(response.json()['message'])
         self.diary.refresh_from_db()
         movement = self.diary.movements.get()
         self.assertEqual(movement.from_office, 'Office A')

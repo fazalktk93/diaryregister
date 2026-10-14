@@ -33,3 +33,4 @@ staticfiles/
 .venv/
 *.dump
 .ui-preview/
+.cache/

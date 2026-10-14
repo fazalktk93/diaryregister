@@ -11,7 +11,6 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Q
-from django.db.models.functions import ExtractMonth
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -30,6 +29,7 @@ from .forms import DiaryCreateForm
 from .models import Diary, DiaryMovement, Directorate, DirectorateSettings, Membership, AuditLog
 from .v2_forms import AccountForm, DirectorateForm, SettingsForm
 from .movement_forms import MovementForm, role_group
+from .data_cache import dashboard_summary, office_choices
 
 
 READ = ('admin', 'operator', 'viewer', 'auditor', 'system')
@@ -62,8 +62,7 @@ def modal_request(request):
 def form_response(request, form, title):
     context = {'form': form, 'title': title, 'is_diary_form': isinstance(form, DiaryCreateForm), 'is_movement_form': isinstance(form, MovementForm)}
     if isinstance(form, (DiaryCreateForm, MovementForm)):
-        from .models import Office
-        context['offices'] = Office.objects.filter(directorate=request.membership.directorate).order_by('name')
+        context['offices'] = office_choices(request.membership.directorate_id)
     if modal_request(request):
         context['in_modal'] = True
         html = render_to_string('v2/_form.html', context, request=request)
@@ -75,7 +74,8 @@ def form_response(request, form, title):
 
 def saved_response(request, name, **kwargs):
     if modal_request(request):
-        return JsonResponse({'success': True})
+        notices = [str(message) for message in messages.get_messages(request)]
+        return JsonResponse({'success': True, 'message': notices[-1] if notices else 'Saved.'})
     return redirect(name, **kwargs)
 
 
@@ -125,6 +125,7 @@ def filter_error(error):
     return HttpResponse(str(error), status=400, content_type='text/plain')
 
 
+@transaction.non_atomic_requests
 @require_roles(*READ)
 def dashboard(request):
     if request.membership.role == 'system' and not request.membership.directorate_id:
@@ -137,22 +138,23 @@ def dashboard(request):
             raise ValueError
     except (ValueError, TypeError):
         return filter_error('Invalid year.')
-    counts = dict(qs.filter(year=year).annotate(month=ExtractMonth('diary_date')).values('month').annotate(count=Count('id')).values_list('month', 'count'))
+    summary = dashboard_summary(qs, request.membership.directorate_id, year, today)
+    counts = summary['month_counts']
     months = [{'month': m, 'name': calendar.month_name[m], 'count': counts.get(m, 0)} for m in range(1, 13)]
-    totals = qs.aggregate(total=Count('pk', filter=Q(year=year)),
-        today_count=Count('pk', filter=Q(diary_date=today)),
-        month_count=Count('pk', filter=Q(year=today.year, diary_date__month=today.month)))
     return render(request, 'v2/dashboard.html', {'year': year, 'months': months,
-        'years': qs.values('year').annotate(count=Count('id')).order_by('-year'),
-        **totals, 'recent': qs[:10], 'today': today})
+        **summary, 'recent': qs[:10], 'today': today})
 
 
+@transaction.non_atomic_requests
 @require_roles(*READ)
 def dashboard_data(request, year):
-    qs = scoped_diaries(request.user, request=request).filter(year=year)
-    return JsonResponse({'year': year, 'total': qs.count(), 'months': list(qs.annotate(month=ExtractMonth('diary_date')).values('month').annotate(count=Count('id')))})
+    qs = scoped_diaries(request.user, request=request)
+    summary = dashboard_summary(qs, request.membership.directorate_id, year, timezone.localdate())
+    return JsonResponse({'year': year, 'total': summary['total'], 'months': [
+        {'month': month, 'count': count} for month, count in sorted(summary['month_counts'].items())]})
 
 
+@transaction.non_atomic_requests
 @require_roles(*READ)
 def diary_list(request, year=None):
     try:
@@ -180,14 +182,16 @@ def diary_create(request):
     if request.method == 'POST' and form.is_valid():
         data = dict(form.cleaned_data)
         data.pop('diary_type', None)
-        diary = Diary.create_with_next_number(created_by=request.user, **data)
-        DiaryMovement.objects.create(diary=diary, to_office=diary.marked_to, from_office=diary.received_from, action_type='Created', created_by=request.user)
+        diary = Diary.create_with_next_number(created_by=request.user, request=request, **data)
+        movement = DiaryMovement(diary=diary, to_office=diary.marked_to, from_office=diary.received_from, action_type='Created', created_by=request.user)
+        movement.save(register_offices=False)
         audit(request.user, 'diary.created', diary.pk, {'after': snapshot(diary)}, request)
         messages.success(request, f'Diary {diary.diary_no} registered for {diary.year}.')
         return saved_response(request, 'diary_detail', pk=diary.pk)
     return form_response(request, form, 'Register diary')
 
 
+@transaction.non_atomic_requests
 @require_roles(*READ)
 def diary_detail(request, pk):
     diary = get_object_or_404(scoped_diaries(request.user, request=request), pk=pk)
@@ -209,7 +213,7 @@ def movement_add(request, pk):
         movement.save()
         diary.marked_to = movement.to_office
         diary.marked_date = timezone.localtime(movement.action_datetime).date()
-        diary.save(update_fields=['marked_to', 'marked_date'])
+        diary.save(update_fields=['marked_to', 'marked_date'], register_offices=False)
         audit(request.user, 'diary.movement.created', movement.pk, {'diary_id': diary.pk, 'before': before,
             'after': {'from_office': movement.from_office, 'to_office': movement.to_office,
                 'action_datetime': movement.action_datetime.isoformat(), 'remarks': movement.remarks}}, request)
@@ -454,8 +458,8 @@ def change_password(request):
     return form_response(request, form, 'Change password')
 
 
+@transaction.non_atomic_requests
 @require_roles(*READ)
 def offices_directory(request):
-    from .models import Office
     scoped_diaries(request.user, request=request)
-    return render(request, 'v2/offices.html', {'offices': Office.objects.filter(directorate=request.membership.directorate).order_by('name')})
+    return render(request, 'v2/offices.html', {'offices': office_choices(request.membership.directorate_id)})
