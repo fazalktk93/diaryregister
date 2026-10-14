@@ -88,7 +88,24 @@
   initForm(document);
   const modalEl = document.getElementById('actionModal');
   const modalBody = document.getElementById('actionModalBody');
-  let opener, loadController;
+  let opener, loadController, saving = false;
+  function setSaving(form, busy) {
+    form.setAttribute('aria-busy', String(busy));
+    form.querySelector('.form-fields').inert = busy;
+    const button = form.querySelector('[type=submit]');
+    if (busy) {
+      button.originalContent = button.innerHTML;
+      button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span role="status">Saving...</span>';
+    } else if (button.originalContent) button.innerHTML = button.originalContent;
+    button.disabled = busy;
+    button.setAttribute('aria-busy', String(busy));
+    form.querySelectorAll('.btn-cancel').forEach(cancel => { cancel.inert = busy; if (cancel.tagName === 'BUTTON') cancel.disabled = busy; });
+    if (form.hasAttribute('data-modal-form')) {
+      saving = busy;
+      modalEl.querySelector('.btn-close').disabled = busy;
+    }
+  }
+  if (modalEl) modalEl.addEventListener('hide.bs.modal', event => { if (saving) event.preventDefault(); });
   if (modalEl) modalEl.addEventListener('hidden.bs.modal', () => {
     if (loadController) loadController.abort();
     modalBody.replaceChildren(); opener?.focus();
@@ -97,44 +114,116 @@
   document.addEventListener('click', async event => {
     const link = event.target.closest('[data-modal-url]');
     if (!link || !modalEl || !window.bootstrap || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-    event.preventDefault(); opener = link;
+    event.preventDefault();
+    if (saving) return;
+    opener = link;
     if (mobile.matches && root.classList.contains('sidebar-open')) { root.classList.remove('sidebar-open'); syncSidebar(); }
     document.getElementById('actionModalTitle').textContent = link.dataset.modalTitle || link.textContent.trim();
-    modalBody.innerHTML = '<div class="modal-loading"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Loading form…</div>';
+    if (loadController) loadController.abort();
+    const template = document.getElementById('instant-' + link.dataset.instantForm + '-form');
+    if (template) {
+      modalBody.removeAttribute('aria-busy');
+      modalBody.replaceChildren(template.content.cloneNode(true));
+      modalBody.querySelector('form').action = link.dataset.modalUrl;
+      const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+        timeZone: template.dataset.timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+      }).formatToParts(new Date()).map(part => [part.type, part.value]));
+      const diaryDate = modalBody.querySelector('#id_diary_date');
+      if (diaryDate) diaryDate.value = `${parts.year}-${parts.month}-${parts.day}`;
+      const fromOffice = modalBody.querySelector('#id_from_office');
+      if (fromOffice) fromOffice.value = link.dataset.fromOffice || '';
+      const movementDate = modalBody.querySelector('#id_action_datetime');
+      if (movementDate) movementDate.value = `${parts.day}-${parts.month}-${parts.year} ${parts.hour}:${parts.minute}`;
+      initForm(modalBody);
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+      return;
+    }
+    modalBody.setAttribute('aria-busy', 'true');
+    modalBody.innerHTML = '<div class="modal-loading" role="status"><span class="spinner-border" aria-hidden="true"></span><span>Loading...</span></div>';
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
     if (loadController) loadController.abort();
     loadController = new AbortController();
+    const controller = loadController;
     try {
-      const response = await fetch(link.dataset.modalUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, signal: loadController.signal });
+      const response = await fetch(link.dataset.modalUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, signal: controller.signal });
       if (response.redirected) { window.location.assign(response.url); return; }
       if (!response.ok) throw new Error(response.status === 403 ? 'You do not have permission for this action.' : 'The form could not be loaded. Close this window and try again.');
-      modalBody.innerHTML = await response.text(); initForm(modalBody);
+      const html = await response.text();
+      if (controller.signal.aborted) return;
+      modalBody.innerHTML = html; initForm(modalBody);
       modalBody.querySelector('input:not([type=hidden]):not(:disabled),select:not(:disabled),textarea:not(:disabled)')?.focus();
     } catch (error) {
       if (error.name === 'AbortError') return;
       modalBody.replaceChildren(); const message = document.createElement('p'); message.className = 'modal-error'; message.textContent = error.message; modalBody.append(message);
-    }
+    } finally { if (controller === loadController) modalBody.removeAttribute('aria-busy'); }
   });
+  let refreshController;
+  function saveNotice(message, warning = false) {
+    document.querySelector('.save-notice')?.remove();
+    const notice = document.createElement('div');
+    notice.className = 'save-notice alert alert-' + (warning ? 'warning' : 'success');
+    notice.setAttribute('role', 'status'); notice.textContent = message;
+    document.getElementById('main').prepend(notice);
+  }
+  async function refreshSavedPage(message) {
+    if (refreshController) refreshController.abort();
+    const controller = refreshController = new AbortController();
+    const url = window.location.href;
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (response.redirected) { window.location.assign(response.url); return; }
+      if (!response.ok) throw new Error('Refresh failed');
+      const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+      if (controller.signal.aborted || window.location.href !== url) return;
+      const results = document.getElementById('diary-list-results');
+      const updatedResults = page.getElementById('diary-list-results');
+      if (results && updatedResults) results.replaceWith(updatedResults);
+      else {
+        const main = page.getElementById('main');
+        if (!main) throw new Error('Refresh failed');
+        document.getElementById('main').replaceChildren(...main.childNodes);
+        initForm(document.getElementById('main'));
+        saveNotice(message);
+      }
+      ['instant-diary-form', 'instant-movement-form'].forEach(id => {
+        const template = page.getElementById(id), existing = document.getElementById(id);
+        if (template && existing) existing.replaceWith(template);
+      });
+    } catch (error) {
+      if (error.name !== 'AbortError') saveNotice(message + ' Refresh the page to see updated records.', true);
+    }
+  }
   document.addEventListener('submit', async event => {
-    const form = event.target.closest('[data-modal-form]');
+    const form = event.target.closest('[data-save-form]');
     if (!form) return;
+    if (form.getAttribute('aria-busy') === 'true') { event.preventDefault(); return; }
+    if (!form.hasAttribute('data-modal-form')) { setSaving(form, true); return; }
     event.preventDefault();
-    const button = form.querySelector('[type=submit]');
-    button.disabled = true; button.setAttribute('aria-busy', 'true');
+    setSaving(form, true);
     try {
       const response = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' } });
       if (response.redirected) { window.location.assign(response.url); return; }
       if (response.status === 403) throw new Error('Your session or permission has changed. Refresh this page before saving.');
       if (response.status !== 422 && !response.ok) throw new Error('Unable to save. Your information is still here; please try again.');
       const result = await response.json();
-      if (result.success) { window.location.reload(); return; }
+      if (result.success) {
+        const message = result.message || 'Saved.';
+        setSaving(form, false);
+        bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+        saveNotice(message);
+        refreshSavedPage(message);
+        return;
+      }
+      setSaving(form, false);
       modalBody.innerHTML = result.html; initForm(modalBody);
       modalBody.querySelector('.has-errors input,.has-errors select,.has-errors textarea')?.focus();
     } catch (error) {
       const message = form.querySelector('.modal-request-error'); message.className = 'modal-request-error alert alert-danger'; message.textContent = error.message;
-      button.disabled = false; button.removeAttribute('aria-busy');
+      setSaving(form, false);
     }
   });
+  window.addEventListener('pageshow', () => document.querySelectorAll('[data-save-form][aria-busy=true]').forEach(form => setSaving(form, false)));
   const filters = document.getElementById('diaryFilters');
   if (filters) {
     let timer, searchController;

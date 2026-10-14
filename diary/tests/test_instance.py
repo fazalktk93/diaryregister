@@ -8,6 +8,20 @@ from config import instance
 
 
 class InstanceConfigurationTests(SimpleTestCase):
+    def test_database_diagnostic_classifies_failure_without_exposing_secrets(self):
+        from config.database_errors import connection_failure_message
+        for raw, expected in [
+            ('password authentication failed for user private-user password=private-secret', 'Authentication failed'),
+            ('connection timed out password=private-secret', 'timed out'),
+            ('could not translate host name private-secret', 'could not be resolved'),
+            ('SSL certificate private-secret', 'secure connection failed'),
+            ('tenant or user not found private-secret', 'Pooler account was not found'),
+        ]:
+            message = connection_failure_message(Exception(raw), 'pooler.supabase.com')
+            self.assertIn(expected, message)
+            self.assertNotIn('private-secret', message)
+            self.assertNotIn('private-user', message)
+
     def test_saved_nonsecret_settings_are_reloaded(self):
         with TemporaryDirectory() as directory:
             path = Path(directory) / '.instance.json'

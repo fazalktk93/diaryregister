@@ -3,7 +3,7 @@
 <div class="page-heading diary-heading">
   <div><h1>Diary {{ diary.diary_no }}</h1><p>Year {{ diary.year }}</p></div>
   <div class="diary-actions" role="group" aria-label="Diary actions">
-    {% if can_move %}<a class="btn btn-success" href="{% url 'movement_add' diary.pk %}" data-modal-url="{% url 'movement_add' diary.pk %}" data-modal-title="Movement — diary {{ diary.diary_no }}">{% include 'v2/_icon.html' with name='arrow' %} Movement</a>{% endif %}
+    {% if can_move %}<a class="btn btn-success" href="{% url 'movement_add' diary.pk %}" data-modal-url="{% url 'movement_add' diary.pk %}" data-instant-form="movement" data-from-office="{{ diary.marked_to|default:diary.received_from }}" data-modal-title="Movement — diary {{ diary.diary_no }}">{% include 'v2/_icon.html' with name='arrow' %} Movement</a>{% endif %}
     {% if can_edit %}<a class="btn btn-warning" href="{% url 'diary_edit' diary.pk %}" data-modal-url="{% url 'diary_edit' diary.pk %}" data-modal-title="Edit diary {{ diary.diary_no }}">{% include 'v2/_icon.html' with name='edit' %} Edit diary</a>{% endif %}
     {% if can_delete %}<button class="btn btn-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteDiaryModal">Delete diary</button>{% endif %}
   </div>

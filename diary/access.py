@@ -71,7 +71,7 @@ def branding(request):
         'directorate_create': 'New directorate', 'directorate_edit': 'Edit directorate',
         'directorate_settings': 'Directorate settings', 'audit_logs': 'Audit log', 'directory': 'Office directory',
         'change_password': 'Change password'}
-    return {'account_membership': membership, 'current_directorate': membership.directorate if membership else None,
+    context = {'account_membership': membership, 'current_directorate': membership.directorate if membership else None,
             'ui_asset_version': ASSET_VERSION,
             'workspace_page_title': page_titles.get(route, 'Diary register'), 'active_route': route,
             'can_write': bool(membership and membership.role in ('admin', 'operator')),
@@ -79,3 +79,12 @@ def branding(request):
             'can_move': bool(membership and membership.role in ('admin', 'operator') and request.user.has_perm('diary.add_diarymovement')),
             'can_delete': bool(membership and membership.role in ('admin', 'operator') and request.user.has_perm('diary.delete_diary')),
             'can_manage': bool(membership and membership.role in ('system', 'admin'))}
+    if context['can_write'] and membership.directorate_id and membership.directorate.is_active:
+        from .forms import DiaryCreateForm
+        from .movement_forms import MovementForm
+        from .data_cache import office_choices
+        context.update(instant_diary_form=DiaryCreateForm(),
+            instant_movement_form=MovementForm(diary=Diary()),
+            instant_offices=office_choices(membership.directorate_id),
+            ui_time_zone=settings.TIME_ZONE)
+    return context

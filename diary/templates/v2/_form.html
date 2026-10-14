@@ -1,4 +1,4 @@
-<form method="post" action="{{ request.path }}" {% if in_modal %}data-modal-form{% endif %}>
+<form method="post" action="{{ request.path }}" data-save-form {% if in_modal %}data-modal-form{% endif %}>
   {% csrf_token %}
   <div class="form-fields">
   {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}

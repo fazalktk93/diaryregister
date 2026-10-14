@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, DatabaseError
+from config.database_errors import connection_failure_message
 
 
 class Command(BaseCommand):
@@ -10,6 +11,6 @@ class Command(BaseCommand):
             with connection.cursor() as cursor:
                 cursor.execute('SELECT 1')
                 cursor.fetchone()
-        except DatabaseError:
-            raise CommandError('Database connection failed. Check saved connection settings, credentials, SSL and network access.') from None
+        except DatabaseError as error:
+            raise CommandError(connection_failure_message(error, connection.settings_dict.get('HOST', ''))) from None
         self.stdout.write(self.style.SUCCESS('Database connection verified.'))

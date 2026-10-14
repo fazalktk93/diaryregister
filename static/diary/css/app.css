@@ -33,6 +33,10 @@
 .diary-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; }
 .page-actions { display:flex; justify-content:flex-end; margin-bottom:16px; }
 .type-badge { display:inline-flex; border-radius:6px; padding:4px 8px; font-size:.74rem; font-weight:600; line-height:1.5; }
+.modal-loading { flex-direction:column; min-height:180px; padding:30px 20px; color:var(--accent); font-size:.88rem; font-weight:600; }
+.modal-loading .spinner-border { width:2rem; height:2rem; border-width:3px; }
+[data-save-form][aria-busy=true] .form-fields { opacity:.65; }
+[data-save-form] button[type=submit][aria-busy=true] { min-width:145px; }
 .type-letter { background:#e5f0ff; color:#17579d; }
 .type-file { background:#fff1cf; color:#835315; }
 .type-service-book { background:#f0e6ff; color:#7040a1; }

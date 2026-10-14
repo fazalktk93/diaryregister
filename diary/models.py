@@ -81,6 +81,16 @@ class Office(models.Model):
         return self.name
 
 
+def register_offices(directorate_id, *names):
+    names = sorted({name.strip() for name in names if name and name.strip()})
+    if not names:
+        return
+    # One conflict-safe batch replaces separate SELECT/INSERT/savepoint trips.
+    Office.objects.bulk_create([Office(directorate_id=directorate_id, name=name) for name in names], ignore_conflicts=True)
+    from .data_cache import invalidate_after_commit
+    invalidate_after_commit('offices', [directorate_id])
+
+
 class Diary(models.Model):
     directorate = models.ForeignKey('Directorate', null=True, on_delete=models.PROTECT)
     archived = models.BooleanField(default=False)
@@ -206,15 +216,12 @@ class Diary(models.Model):
 
     # ✅ ADDITIVE: keep Office table populated for autocomplete/search
     def save(self, *args, **kwargs):
-        # Keep offices recorded (optional but very useful)
-        if self.received_from and self.received_from.strip():
-            Office.objects.get_or_create(directorate=self.directorate, name=self.received_from.strip())
-        if self.marked_to and self.marked_to.strip():
-            Office.objects.get_or_create(directorate=self.directorate, name=self.marked_to.strip())
+        if kwargs.pop('register_offices', True):
+            register_offices(self.directorate_id, self.received_from, self.marked_to)
         super().save(*args, **kwargs)
 
     @classmethod
-    def create_with_next_number(cls, *, created_by, **fields) -> "Diary":
+    def create_with_next_number(cls, *, created_by, request=None, **fields) -> "Diary":
         """
         Allocate using a unique directorate/year counter row locked until commit.
         get_or_create handles concurrent initialization of the first year's row.
@@ -223,7 +230,7 @@ class Diary(models.Model):
 
         today = timezone.localdate()
         from .access import membership_for
-        membership = membership_for(created_by)
+        membership = membership_for(created_by, request=request)
         if not membership or membership.role not in ('admin', 'operator') or not membership.directorate_id or not membership.directorate.is_active:
             raise ValidationError('An active directorate membership is required.')
         fields.pop('directorate', None)
@@ -231,8 +238,7 @@ class Diary(models.Model):
         year = today.year
 
         with transaction.atomic():
-            counter, _ = DiaryCounter.objects.get_or_create(directorate=membership.directorate, year=year)
-            counter = DiaryCounter.objects.select_for_update().get(pk=counter.pk)
+            counter, _ = DiaryCounter.objects.select_for_update().get_or_create(directorate=membership.directorate, year=year)
             counter.value += 1
             counter.save(update_fields=['value'])
             next_seq = counter.value
@@ -293,11 +299,8 @@ class DiaryMovement(models.Model):
             self.sequence = self.diary.sequence
 
         # ✅ ADDITIVE: record offices automatically for autocomplete / indexing
-        if self.from_office and self.from_office.strip():
-            Office.objects.get_or_create(directorate=self.diary.directorate, name=self.from_office.strip())
-
-        if self.to_office and self.to_office.strip():
-            Office.objects.get_or_create(directorate=self.diary.directorate, name=self.to_office.strip())
+        if kwargs.pop('register_offices', True):
+            register_offices(self.diary.directorate_id, self.from_office, self.to_office)
 
         super().save(*args, **kwargs)
 

@@ -29,4 +29,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    from django.core.management.base import CommandError
+    try:
+        main()
+    except CommandError as error:
+        raise SystemExit(str(error)) from None
