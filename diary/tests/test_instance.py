@@ -8,6 +8,41 @@ from config import instance
 
 
 class InstanceConfigurationTests(SimpleTestCase):
+    def test_lan_network_configuration_preserves_database_and_credentials(self):
+        import setup_instance
+        previous = {'database': {'host': 'localhost', 'name': 'existing'}, 'credential_service': 'existing-service',
+            'bind_host': '127.0.0.1', 'port': 8000}
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / '.instance.json'
+            path.write_text(json.dumps(previous), encoding='utf-8')
+            with patch.object(setup_instance, 'CONFIG_PATH', path), patch.object(setup_instance, 'read_config', return_value=dict(previous)), \
+                    patch('builtins.input', side_effect=['', '', '192.168.1.25']), \
+                    patch('socket.getaddrinfo', return_value=[]), patch('socket.gethostname', return_value='CDA-PC'), \
+                    patch('psycopg2.connect') as connect, patch.object(setup_instance, 'secret_store') as backend:
+                setup_instance.configure_network()
+            config = json.loads(path.read_text())
+            self.assertEqual(config['database'], previous['database'])
+            self.assertEqual(config['credential_service'], 'existing-service')
+            self.assertEqual(config['bind_host'], '0.0.0.0')
+            self.assertIn('192.168.1.25', config['allowed_hosts'])
+            connect.assert_not_called()
+            backend.assert_not_called()
+
+    def test_lan_defaults_include_detected_server_ip(self):
+        import setup_instance
+        with patch('builtins.input', side_effect=['0.0.0.0', '', '']), \
+                patch('socket.gethostname', return_value='CDA-PC'), \
+                patch('socket.getaddrinfo', return_value=[(2, 1, 6, '', ('192.168.1.25', 0))]):
+            result = setup_instance.app_network_settings({})
+        self.assertIn('192.168.1.25', result['allowed_hosts'])
+        self.assertIn('CDA-PC', result['allowed_hosts'])
+        self.assertNotIn('0.0.0.0', result['allowed_hosts'])
+
+    def test_network_hosts_require_server_address_without_url_or_port(self):
+        import setup_instance
+        with patch('builtins.input', side_effect=['127.0.0.1', '', 'http://192.168.1.25:8000']):
+            with self.assertRaises(SystemExit):
+                setup_instance.app_network_settings({})
     def test_local_wizard_creates_missing_database_and_stores_only_nonsecrets(self):
         import setup_instance
         import psycopg2

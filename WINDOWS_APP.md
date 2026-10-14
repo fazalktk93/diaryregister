@@ -20,6 +20,18 @@ The wizard creates the Python environment and installs requirements, then asks f
 
 An already-running server started with `start_windows.bat` must first be stopped in its own terminal with Ctrl+C. Managed app processes are stopped before reconfiguration. Non-secret configuration is saved in `.instance.json`, with the previous configuration saved to ignored `.cache/previous-instance.json`. Passwords are never included in task arguments, scripts, configuration JSON or logs. Scheduled and managed launches use the saved settings, clearing competing database/app overrides only in the launched process environment.
 
+## Fix LAN access or HTTP 400
+
+Run this on the **server PC**:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\windows_app.ps1 -Action ConfigureNetwork
+```
+
+Use bind IP `0.0.0.0`, the existing app port, and the **server's IPv4 address** from `ipconfig` as an allowed host, for example `192.168.1.25`. Enter the address without `http://` or `:8000`; this is the server address, not the client PC's address. The wizard suggests detected server addresses, saves only network settings and restarts the managed app. Its database connection and stored passwords are retained.
+
+On the other PC open `http://192.168.1.25:8000/`, replacing the example with the server's actual address and port. A Django HTTP 400 commonly means that browser hostname/IP is missing from `allowed_hosts`. A timeout instead suggests binding, firewall or network connectivity. If a foreground server is running in a terminal, stop it with Ctrl+C before ConfigureNetwork. Keep the server address stable through a DHCP reservation or update allowed hosts after an address change.
+
 ## Startup modes
 
 **At Windows sign-in** is the default. It runs under the setup account after a 30-second delay and does not require storing a Windows password in the script.
