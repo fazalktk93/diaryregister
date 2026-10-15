@@ -21,6 +21,8 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 
     def has_view_permission(self, request, obj=None):
         member = membership_for(request.user)
+        if self.model == DiaryMovement and (not member or member.role != 'admin'):
+            return False
         return bool(member and (member.role == 'system' or member.directorate and member.directorate.is_active))
 
     def get_queryset(self, request):

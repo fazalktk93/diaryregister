@@ -5,16 +5,25 @@ from diary.access import audit
 
 
 class Command(BaseCommand):
-    help = 'Grant Movement to existing staff groups and Delete to Data Entry Operators.'
+    help = 'Keep Movement for admin/operators and restrict Delete to directorate admins.'
 
     @transaction.atomic
     def handle(self, *args, **options):
         permission = Permission.objects.get(content_type__app_label='diary', codename='add_diarymovement')
         groups = Group.objects.filter(name__in=['CDA admin', 'CDA operator'])
-        for group in groups:
-            group.permissions.add(permission)
         delete_permission = Permission.objects.get(content_type__app_label='diary', codename='delete_diary')
-        for group in groups.filter(name='CDA operator'):
-            group.permissions.add(delete_permission)
-        audit(None, 'roles.register_permissions.granted', changes={'movement_groups': list(groups.values_list('name', flat=True)), 'delete_group': 'CDA operator', 'permissions_added': ['diary.add_diarymovement', 'diary.delete_diary']})
-        self.stdout.write(self.style.SUCCESS('Movement granted to existing CDA admin/operator groups; Delete granted to CDA operator. No diary records or unrelated permissions were changed.'))
+        changes = []
+        for group in groups.prefetch_related('permissions'):
+            existing = {item.pk for item in group.permissions.all()}
+            if permission.pk not in existing:
+                group.permissions.add(permission)
+                changes.append({'group': group.name, 'added': 'diary.add_diarymovement'})
+            if group.name == 'CDA admin' and delete_permission.pk not in existing:
+                group.permissions.add(delete_permission)
+                changes.append({'group': group.name, 'added': 'diary.delete_diary'})
+            elif group.name == 'CDA operator' and delete_permission.pk in existing:
+                group.permissions.remove(delete_permission)
+                changes.append({'group': group.name, 'removed': 'diary.delete_diary'})
+        if changes:
+            audit(None, 'roles.register_permissions.updated', changes={'changes': changes})
+        self.stdout.write(self.style.SUCCESS('Movement remains available to admins/operators; Delete is restricted to directorate admins.'))

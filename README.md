@@ -19,11 +19,13 @@ Each ordinary user has one directorate. Server-side membership determines every 
 | --- | --- |
 | System Administrator | Directorates, users, roles, account status, resets and administrative/security audits; no implicit diary access |
 | Directorate Administrator | Own directorate's diaries, archival, operator/viewer/auditor accounts, resets, settings and audit logs |
-| Data Entry Operator | Own directorate's diary registration, movement, editing, deletion from the active register and reporting |
+| Data Entry Operator | Own directorate's diary registration, movement, editing and reporting; no deletion or movement-author labels |
 | Viewer | Own directorate's read-only diary register and reports |
 | Auditor | Own directorate's read-only diaries, reports and audit logs |
 
 Diary write actions require both the role and Django model permission. Roles are assigned to Django Groups by the account-management module. Directorate administrators cannot manage peers, system administrators or privileged Django accounts.
+
+Only directorate administrators can delete/archive diaries or see movement "Recorded by" labels. Movement dates/times can be edited; new diary registration dates remain fixed to the current official date. Add new diary is available in the left menu. Startup synchronizes the existing CDA role groups to remove old operator delete grants.
 
 Start with [SETUP.md](SETUP.md). Sign in, create directorates and users, then register diaries. New diary dates are set automatically to the current official date (`Asia/Karachi` by default); editing preserves the original date. Dashboard counts, KPI links and reports use the displayed diary date consistently. The register keeps the original View + Movement row actions and modal entry flow; reports provide period/column filters and exports. The PDF preserves the original eight-column oficio-landscape register. Archival preserves the allocated number and historical information.
 

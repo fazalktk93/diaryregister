@@ -77,7 +77,8 @@ def branding(request):
             'can_write': bool(membership and membership.role in ('admin', 'operator')),
             'can_edit': bool(membership and membership.role in ('admin', 'operator') and request.user.has_perm('diary.change_diary')),
             'can_move': bool(membership and membership.role in ('admin', 'operator') and request.user.has_perm('diary.add_diarymovement')),
-            'can_delete': bool(membership and membership.role in ('admin', 'operator') and request.user.has_perm('diary.delete_diary')),
+            'can_delete': bool(membership and membership.role == 'admin' and request.user.has_perm('diary.delete_diary')),
+            'can_view_movement_authors': bool(membership and membership.role == 'admin'),
             'can_manage': bool(membership and membership.role in ('system', 'admin'))}
     if context['can_write'] and membership.directorate_id and membership.directorate.is_active:
         from .forms import DiaryCreateForm

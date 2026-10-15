@@ -33,7 +33,7 @@
           <div class="history-destination">{{ movement.to_office|default:'—' }}</div>
           {% if movement.from_office %}<div class="history-from">From {{ movement.from_office }}</div>{% endif %}
           {% if movement.remarks %}<div class="history-remarks">{{ movement.remarks|linebreaksbr }}</div>{% endif %}
-          <div class="history-author">Recorded by {{ movement.created_by.get_full_name|default:movement.created_by.username }}</div>
+          {% if can_view_movement_authors %}<div class="history-author">Recorded by {{ movement.created_by.get_full_name|default:movement.created_by.username }}</div>{% endif %}
         </li>{% empty %}<li class="history-empty">No movement recorded yet.</li>{% endfor %}
       </ol>
     </div></div>
